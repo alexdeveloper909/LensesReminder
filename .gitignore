@@ -1,0 +1,25 @@
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/tasks.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/shelf/
+.DS_Store
+/build
+/captures
+.externalNativeBuild/
+.cxx/
+local.properties
+
+# Build outputs
+**/build/
+*.apk
+*.aab
+*.ap_
+output-metadata.json
