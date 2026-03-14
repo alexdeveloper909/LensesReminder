@@ -7,6 +7,7 @@ import com.alex.lensesreminder.data.local.db.toEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
@@ -19,6 +20,8 @@ class WearSessionRepository @Inject constructor(
 
     val currentSession: Flow<WearSession?> = wearSessionDao.observeCurrentSession()
         .map { entity -> entity?.toDomain() }
+
+    suspend fun getCurrentSession(): WearSession? = currentSession.first()
 
     suspend fun saveSession(session: WearSession): Long = wearSessionDao.upsert(session.toEntity())
 }

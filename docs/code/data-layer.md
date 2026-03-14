@@ -1,6 +1,6 @@
 # Data Layer
 
-This document explains the persistence foundation introduced in Phase 1.
+This document explains the persistence and repository shape after Phase 2.
 
 ## Storage split
 
@@ -101,9 +101,10 @@ Repositories provide the interface the rest of the app uses.
 ### `WearSessionRepository`
 
 - exposes the current session as `Flow<WearSession?>`
+- exposes the current session synchronously for lifecycle rules
 - saves session snapshots
 
-This repository is foundational for later phases but is not heavily used by the UI yet.
+Phase 2 uses this repository directly from `SessionLifecycleManager` and `HomeViewModel`.
 
 ### `AppPreferencesRepository`
 
@@ -114,4 +115,4 @@ This repository is foundational for later phases but is not heavily used by the 
 
 The data layer stores session timestamps in UTC-friendly types using `Instant`.
 
-User-facing time calculations should use `LensClock.zoneId()` so future scheduling and display code stays testable and timezone-aware.
+User-facing time calculations should use `LensClock.zoneId()` so scheduling, session timing, and display code stay testable and timezone-aware.

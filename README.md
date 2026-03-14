@@ -2,11 +2,11 @@
 
 Android app for tracking daily contact lens wear time and delivering reminders before the safe wear window ends and before sleep.
 
-The product direction lives in [docs/vision/vision.md](docs/vision/vision.md) and the implementation plan lives in [docs/spec/technical-spec.md](docs/spec/technical-spec.md). This README focuses on the codebase as it exists after Phase 1: app foundation.
+The product direction lives in [docs/vision/vision.md](docs/vision/vision.md) and the implementation plan lives in [docs/spec/technical-spec.md](docs/spec/technical-spec.md). This README focuses on the codebase as it exists after Phase 2: session lifecycle.
 
 ## Current status
 
-Phase 1 is implemented:
+Phase 1 and Phase 2 are implemented:
 
 - Compose app shell with onboarding, home, and settings navigation
 - Persistent lens profile/settings storage
@@ -16,14 +16,18 @@ Phase 1 is implemented:
 - Notification permission entry point on the home screen
 - Hilt dependency injection foundation
 - Clock abstraction for later scheduling logic
+- `Start now` session creation
+- Planned session create/edit/cancel flow
+- Planned-session activation into an active session
+- Active and overdue timer UI on the home screen
+- Session completion via `Lenses off`
 
 Not implemented yet:
 
-- session lifecycle actions such as `Start now` and `Lenses off`
-- planned sessions
 - reminder scheduling engine
 - notification actions
 - reboot/time-change recovery
+- manual start correction
 
 ## Tech stack
 

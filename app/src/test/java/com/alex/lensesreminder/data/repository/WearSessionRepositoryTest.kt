@@ -34,4 +34,17 @@ class WearSessionRepositoryTest {
         assertEquals(1L, id)
         assertEquals(session.copy(id = id), repository.currentSession.first())
     }
+
+    @Test
+    fun `get current session returns the open session snapshot`() = runTest {
+        val repository = WearSessionRepository(FakeWearSessionDao())
+        val session = WearSession(
+            status = SessionStatus.PLANNED,
+            source = SessionSource.PLANNED
+        )
+
+        val id = repository.saveSession(session)
+
+        assertEquals(session.copy(id = id), repository.getCurrentSession())
+    }
 }

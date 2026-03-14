@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.alex.lensesreminder.feature.home.HomeRoute
 import com.alex.lensesreminder.feature.onboarding.OnboardingRoute
+import com.alex.lensesreminder.feature.plan.PlanSessionRoute
 import com.alex.lensesreminder.feature.settings.SettingsRoute
 
 /**
@@ -33,8 +34,18 @@ fun LensesReminderNavHost(
         }
         composable(route = AppDestination.Home.route) {
             HomeRoute(
+                onPlanSession = {
+                    navController.navigate(AppDestination.PlanSession.route)
+                },
                 onEditSettings = {
                     navController.navigate(AppDestination.Settings.route)
+                }
+            )
+        }
+        composable(route = AppDestination.PlanSession.route) {
+            PlanSessionRoute(
+                onDone = {
+                    navController.popBackStack()
                 }
             )
         }

@@ -1,6 +1,6 @@
 # UI And Navigation
 
-This document explains the current Compose UI structure after Phase 1.
+This document explains the current Compose UI structure after Phase 2.
 
 ## Entry points
 
@@ -25,9 +25,10 @@ Current routes:
 
 - `setup`
 - `home`
+- `planSession`
 - `settings`
 
-The route set is intentionally smaller than the full product spec because Phase 1 only implements the foundation screens.
+The route set is still smaller than the full product spec because correction/recovery flows are deferred to later phases.
 
 ## Implemented screens
 
@@ -50,18 +51,35 @@ Implementation notes:
 
 Package: `feature/home/`
 
-Purpose in Phase 1:
+Purpose in Phase 2:
 
-- show the empty state shell
-- summarize the saved lens profile
+- show the current session state: out, planned, active, or overdue
+- expose `Start now`, `Plan for later`, `Lenses on`, `Lenses off`, and plan-cancel actions
+- render elapsed, remaining, and overdue timing while the app is open
+- summarize the saved reminder profile
 - expose notification permission handling
-- provide navigation to settings
+- provide navigation to settings and plan editing
 
-Current limitations:
+Implementation notes:
 
-- no session card logic yet
-- no active timers yet
-- no start/stop actions yet
+- `HomeViewModel` combines profile data, app preferences, the current session, and a clock ticker
+- overdue state is reflected in the UI as soon as the expected end time passes
+- the screen still stops short of scheduling notifications
+
+### Plan session
+
+Package: `feature/plan/`
+
+Purpose:
+
+- create or edit the single planned session
+- show the inherited reminder configuration from settings
+
+Implementation notes:
+
+- uses platform date/time picker dialogs
+- saves through `PlanSessionViewModel`
+- reuses the same route for both create and edit
 
 ### Settings
 
@@ -94,7 +112,15 @@ Implementation notes:
 ### `HomeViewModel`
 
 - combines profile state with app preference state
+- combines current session state with a live clock ticker
 - records that a notification permission request was launched
+- delegates lifecycle actions to `SessionLifecycleManager`
+
+### `PlanSessionViewModel`
+
+- loads an existing planned session when present
+- owns the plan date/time form state
+- validates and saves planned-session changes
 
 ## Notification permission UX
 
@@ -106,4 +132,4 @@ Behavior:
 - the user can trigger the permission prompt from that card
 - the app remembers whether a request has already been attempted
 
-This is groundwork for reminder reliability messaging in later phases.
+This is groundwork for reminder reliability messaging in later phases, when actual reminder scheduling is added.

@@ -6,5 +6,6 @@ package com.alex.lensesreminder.app.navigation
 enum class AppDestination(val route: String) {
     Setup("setup"),
     Home("home"),
+    PlanSession("planSession"),
     Settings("settings"),
 }

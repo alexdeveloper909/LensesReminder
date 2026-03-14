@@ -6,6 +6,7 @@ import com.alex.lensesreminder.data.local.db.WearSessionDao
 import com.alex.lensesreminder.data.local.db.WearSessionEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 
 /**
  * In-memory DAO implementation used by repository and ViewModel unit tests.
@@ -27,7 +28,11 @@ class FakeWearSessionDao : WearSessionDao {
     private val sessionState = MutableStateFlow<WearSessionEntity?>(null)
     private var nextId = 1L
 
-    override fun observeCurrentSession(): Flow<WearSessionEntity?> = sessionState
+    override fun observeCurrentSession(): Flow<WearSessionEntity?> = sessionState.map { session ->
+        session?.takeIf {
+            it.status == "PLANNED" || it.status == "ACTIVE" || it.status == "OVERDUE"
+        }
+    }
 
     override suspend fun upsert(session: WearSessionEntity): Long {
         val resolvedId = if (session.id == 0L) nextId++ else session.id
