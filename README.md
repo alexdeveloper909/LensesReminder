@@ -65,4 +65,4 @@ Code-oriented docs are in `docs/code/`:
 
 ## Notes
 
-The current Gradle setup uses compatibility flags in `gradle.properties` so Hilt works cleanly with the AGP 9 project template. That is a temporary tooling decision, not a product requirement.
+The project now builds on the AGP 9 default built-in Kotlin/new DSL path. Hilt and KSP were updated to versions that compile cleanly in that setup, so no AGP compatibility opt-out flags are currently needed in `gradle.properties`.

@@ -30,22 +30,19 @@ The exported schema is useful for:
 - reviewing migrations later
 - validating storage changes in code review
 
-## Hilt and AGP 9 compatibility
+## Hilt, KSP, and AGP 9 compatibility
 
 The current project template uses AGP 9, which defaults to built-in Kotlin and the new Android DSL.
 
-Hilt in this project currently compiles successfully only with compatibility flags in `gradle.properties`:
+The project now works on that default path without compatibility opt-out flags.
 
-- `android.builtInKotlin=false`
-- `android.newDsl=false`
+The working combination is:
 
-These settings are a tooling workaround, not an architectural preference.
+- Hilt `2.59.1`
+- KSP `2.3.6`
+- AGP `9.1.0`
 
-They should be revisited later when:
-
-- the Android Gradle Plugin version changes
-- Hilt/plugin compatibility improves
-- the project is ready for build-system cleanup
+The earlier AGP opt-out flags were removed after updating Hilt and KSP. If this area breaks again during future upgrades, check Hilt and KSP release notes first before reintroducing Gradle property workarounds.
 
 ## Java and Kotlin target
 
