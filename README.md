@@ -54,6 +54,14 @@ Assemble the debug app:
 ./gradlew :app:assembleDebug
 ```
 
+## Quality gate
+
+Run the current JVM test suite:
+
+```bash
+./gradlew :app:testDebugUnitTest
+```
+
 ## Documentation
 
 Code-oriented docs are in `docs/code/`:
