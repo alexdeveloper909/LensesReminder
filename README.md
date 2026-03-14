@@ -2,11 +2,11 @@
 
 Android app for tracking daily contact lens wear time and delivering reminders before the safe wear window ends and before sleep.
 
-The product direction lives in [docs/vision/vision.md](docs/vision/vision.md) and the implementation plan lives in [docs/spec/technical-spec.md](docs/spec/technical-spec.md). This README focuses on the codebase as it exists after Phase 2: session lifecycle.
+The product direction lives in [docs/vision/vision.md](docs/vision/vision.md) and the implementation plan lives in [docs/spec/technical-spec.md](docs/spec/technical-spec.md). This README focuses on the codebase as it exists after Phase 3: reminder engine.
 
 ## Current status
 
-Phase 1 and Phase 2 are implemented:
+Phase 1, Phase 2, and Phase 3 are implemented:
 
 - Compose app shell with onboarding, home, and settings navigation
 - Persistent lens profile/settings storage
@@ -21,11 +21,14 @@ Phase 1 and Phase 2 are implemented:
 - Planned-session activation into an active session
 - Active and overdue timer UI on the home screen
 - Session completion via `Lenses off`
+- `AlarmManager` reminder scheduling with exact-alarm fallback behavior
+- Planned start reminder notifications
+- Wear-end and repeated overdue reminder notifications
+- Final alert cutoff notification
+- Background notification actions for `Lenses on`, `Snooze 15 min`, and `Lenses off`
 
 Not implemented yet:
 
-- reminder scheduling engine
-- notification actions
 - reboot/time-change recovery
 - manual start correction
 
@@ -72,6 +75,7 @@ Code-oriented docs are in `docs/code/`:
 
 - [docs/code/architecture.md](docs/code/architecture.md)
 - [docs/code/data-layer.md](docs/code/data-layer.md)
+- [docs/code/reminder-engine.md](docs/code/reminder-engine.md)
 - [docs/code/ui-and-navigation.md](docs/code/ui-and-navigation.md)
 - [docs/code/build-and-tooling.md](docs/code/build-and-tooling.md)
 

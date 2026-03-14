@@ -7,10 +7,13 @@ import com.alex.lensesreminder.core.model.WearSession
 import com.alex.lensesreminder.data.repository.AppPreferencesRepository
 import com.alex.lensesreminder.data.repository.LensProfileRepository
 import com.alex.lensesreminder.data.repository.WearSessionRepository
+import com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator
 import com.alex.lensesreminder.domain.session.SessionLifecycleManager
 import com.alex.lensesreminder.testutil.FakeLensProfileDao
 import com.alex.lensesreminder.testutil.FakeLensClock
 import com.alex.lensesreminder.testutil.MainDispatcherRule
+import com.alex.lensesreminder.testutil.FakeReminderAlarmScheduler
+import com.alex.lensesreminder.testutil.FakeReminderNotificationPublisher
 import com.alex.lensesreminder.testutil.FakeWearSessionDao
 import com.alex.lensesreminder.testutil.createTestPreferencesDataStore
 import java.time.Duration
@@ -37,6 +40,12 @@ class HomeViewModelTest {
         val sessionLifecycleManager = SessionLifecycleManager(
             profileRepository,
             sessionRepository,
+            ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
             clock
         )
         val expectedProfile = LensProfile(maxWearMinutes = 600, remindersEnabled = false)
@@ -86,6 +95,12 @@ class HomeViewModelTest {
         val sessionLifecycleManager = SessionLifecycleManager(
             profileRepository,
             sessionRepository,
+            ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
             clock
         )
         sessionRepository.saveSession(

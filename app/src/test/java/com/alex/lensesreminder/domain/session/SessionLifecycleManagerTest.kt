@@ -8,6 +8,8 @@ import com.alex.lensesreminder.data.repository.LensProfileRepository
 import com.alex.lensesreminder.data.repository.WearSessionRepository
 import com.alex.lensesreminder.testutil.FakeLensClock
 import com.alex.lensesreminder.testutil.FakeLensProfileDao
+import com.alex.lensesreminder.testutil.FakeReminderAlarmScheduler
+import com.alex.lensesreminder.testutil.FakeReminderNotificationPublisher
 import com.alex.lensesreminder.testutil.FakeWearSessionDao
 import java.time.Duration
 import java.time.Instant
@@ -38,7 +40,20 @@ class SessionLifecycleManagerTest {
             )
         )
         val repository = WearSessionRepository(FakeWearSessionDao())
-        val manager = SessionLifecycleManager(profileRepository, repository, clock)
+        val reminderScheduler = FakeReminderAlarmScheduler()
+        val reminderCoordinator = com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
+            profileRepository,
+            reminderScheduler,
+            clock
+        )
+        val reminderPublisher = FakeReminderNotificationPublisher()
+        val manager = SessionLifecycleManager(
+            profileRepository,
+            repository,
+            reminderCoordinator,
+            reminderPublisher,
+            clock
+        )
 
         val result = manager.startNow()
 
@@ -52,6 +67,7 @@ class SessionLifecycleManagerTest {
             Instant.parse("2026-03-14T22:00:00Z"),
             session.finalAlertScheduledFor
         )
+        assertEquals(2, reminderScheduler.scheduledAlarms.size)
     }
 
     @Test
@@ -59,7 +75,18 @@ class SessionLifecycleManagerTest {
         val clock = FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
         val profileRepository = LensProfileRepository(FakeLensProfileDao())
         val repository = WearSessionRepository(FakeWearSessionDao())
-        val manager = SessionLifecycleManager(profileRepository, repository, clock)
+        val reminderScheduler = FakeReminderAlarmScheduler()
+        val manager = SessionLifecycleManager(
+            profileRepository,
+            repository,
+            com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
+                profileRepository,
+                reminderScheduler,
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
 
         val firstPlan = (manager.savePlannedSession(clock.now().plus(Duration.ofHours(2)))
             as SessionLifecycleResult.Success).value
@@ -71,6 +98,7 @@ class SessionLifecycleManagerTest {
         assertEquals(firstPlan.id, savedSession.id)
         assertEquals(SessionStatus.PLANNED, savedSession.status)
         assertEquals(clock.now().plus(Duration.ofHours(4)), savedSession.plannedStartAt)
+        assertEquals(1, reminderScheduler.scheduledAlarms.size)
     }
 
     @Test
@@ -79,7 +107,17 @@ class SessionLifecycleManagerTest {
         val profileRepository = LensProfileRepository(FakeLensProfileDao())
         profileRepository.saveProfile(LensProfile(maxWearMinutes = 480))
         val repository = WearSessionRepository(FakeWearSessionDao())
-        val manager = SessionLifecycleManager(profileRepository, repository, clock)
+        val manager = SessionLifecycleManager(
+            profileRepository,
+            repository,
+            com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
         manager.savePlannedSession(clock.now().plus(Duration.ofHours(1)))
 
         val result = manager.activatePlannedSession()
@@ -95,7 +133,18 @@ class SessionLifecycleManagerTest {
         val clock = FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
         val profileRepository = LensProfileRepository(FakeLensProfileDao())
         val repository = WearSessionRepository(FakeWearSessionDao())
-        val manager = SessionLifecycleManager(profileRepository, repository, clock)
+        val reminderPublisher = FakeReminderNotificationPublisher()
+        val manager = SessionLifecycleManager(
+            profileRepository,
+            repository,
+            com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            reminderPublisher,
+            clock
+        )
         repository.saveSession(
             WearSession(
                 actualStartAt = clock.now().minus(Duration.ofHours(1)),
@@ -108,6 +157,7 @@ class SessionLifecycleManagerTest {
 
         assertTrue(result is SessionLifecycleResult.Success)
         assertNull(repository.getCurrentSession())
+        assertEquals(listOf(1L), reminderPublisher.cancelledSessionIds)
     }
 
     @Test
@@ -115,7 +165,18 @@ class SessionLifecycleManagerTest {
         val clock = FakeLensClock(Instant.parse("2026-03-14T12:00:00Z"))
         val profileRepository = LensProfileRepository(FakeLensProfileDao())
         val repository = WearSessionRepository(FakeWearSessionDao())
-        val manager = SessionLifecycleManager(profileRepository, repository, clock)
+        val reminderScheduler = FakeReminderAlarmScheduler()
+        val manager = SessionLifecycleManager(
+            profileRepository,
+            repository,
+            com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
+                profileRepository,
+                reminderScheduler,
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
         repository.saveSession(
             WearSession(
                 actualStartAt = clock.now().minus(Duration.ofHours(10)),
@@ -128,5 +189,41 @@ class SessionLifecycleManagerTest {
 
         assertEquals(SessionStatus.OVERDUE, refreshed?.status)
         assertEquals(SessionStatus.OVERDUE, repository.getCurrentSession()?.status)
+        assertEquals(
+            com.alex.lensesreminder.domain.scheduler.ReminderAlarmType.WEAR_END,
+            reminderScheduler.scheduledAlarms.single().type
+        )
+    }
+
+    @Test
+    fun `snooze planned session moves reminder 15 minutes from now`() = runTest {
+        val clock = FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        val repository = WearSessionRepository(FakeWearSessionDao())
+        val reminderScheduler = FakeReminderAlarmScheduler()
+        val manager = SessionLifecycleManager(
+            profileRepository,
+            repository,
+            com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
+                profileRepository,
+                reminderScheduler,
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
+        val plannedSessionId = repository.saveSession(
+            WearSession(
+                plannedStartAt = clock.now(),
+                status = SessionStatus.PLANNED
+            )
+        )
+
+        val result = manager.snoozePlannedSession(plannedSessionId)
+
+        assertTrue(result is SessionLifecycleResult.Success)
+        val snoozedSession = (result as SessionLifecycleResult.Success).value
+        assertEquals(clock.now().plus(Duration.ofMinutes(15)), snoozedSession.plannedStartAt)
+        assertEquals(clock.now().plus(Duration.ofMinutes(15)), reminderScheduler.scheduledAlarms.single().triggerAt)
     }
 }

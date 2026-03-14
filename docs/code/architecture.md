@@ -1,6 +1,6 @@
 # Code Architecture
 
-This document explains how the current codebase is organized and how the major layers interact after Phase 2.
+This document explains how the current codebase is organized and how the major layers interact after Phase 3.
 
 ## High-level flow
 
@@ -12,8 +12,9 @@ From there:
 2. `LensesReminderApp` asks `RootViewModel` whether onboarding is complete
 3. `LensesReminderNavHost` chooses between onboarding, home, and settings
 4. Feature view-models load persisted state from repositories and domain services
-5. Domain services enforce session lifecycle rules
-6. Repositories read from Room or DataStore
+5. Domain services enforce session lifecycle and reminder rules
+6. Receivers handle fired alarms and notification actions in the background
+7. Repositories read from Room or DataStore
 
 ## Packages
 
@@ -25,6 +26,7 @@ Contains app-wide wiring:
 - `RootViewModel.kt`: startup state used to select the first screen
 - `navigation/`: route definitions and `NavHost`
 - `di/AppModule.kt`: Hilt providers for database, DAOs, DataStore, and clock
+- receiver bindings are still declared in the manifest because they are Android entry points
 
 This package should stay focused on application assembly, not feature business logic.
 
@@ -34,7 +36,7 @@ Contains reusable types that are not tied to a specific screen or storage implem
 
 - `model/`: `LensProfile`, `WearSession`, enums such as `SessionStatus`
 - `time/`: `LensClock` abstraction and `SystemLensClock`
-- `notification/`: channel registration and permission checks
+- `notification/`: channel registration, permission checks, and system notification publishing
 
 The `core` package is intended to stay stable as the rest of the app grows.
 
@@ -53,8 +55,13 @@ This layer owns storage details and should be the only layer that knows about Ro
 Contains business rules that sit above repositories but below screen state:
 
 - `session/SessionLifecycleManager.kt`: Phase 2 lifecycle rules for starting, planning, activating, completing, cancelling, and expiring sessions
+- `scheduler/`: Phase 3 reminder scheduling and alarm handling rules
 
 This package is where the app now centralizes behavior that must stay consistent across screens and, later, receivers/notifications.
+
+### `receiver/`
+
+Contains the Android `BroadcastReceiver` entry points for reminder alarms and notification actions.
 
 ### `feature/`
 
@@ -86,10 +93,11 @@ This keeps feature UI dependent on repositories and models, while keeping storag
 
 ## Phase boundaries
 
-The current implementation now includes the session lifecycle, but still stops before the reminder engine and recovery flows. That means:
+The current implementation now includes the session lifecycle and reminder engine, but still stops before recovery and correction flows. That means:
 
 - the home screen is a real session dashboard with plan/start/stop actions
 - `SessionLifecycleManager` owns the Phase 2 rules for session state transitions
-- notification channels exist, but actual reminder notifications do not
+- `ReminderScheduleCoordinator` and `ReminderAlarmHandler` own the Phase 3 reminder chain
+- actual reboot/time-change recovery is still deferred to a later phase
 
-This keeps Phase 3 focused on scheduling and notification orchestration instead of reworking session state handling.
+The current code keeps reminder policy mostly outside Android framework classes, so the reminder chain can be unit-tested without instrumented tests.

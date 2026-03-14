@@ -23,5 +23,7 @@ class WearSessionRepository @Inject constructor(
 
     suspend fun getCurrentSession(): WearSession? = currentSession.first()
 
+    suspend fun getSession(sessionId: Long): WearSession? = wearSessionDao.getSessionById(sessionId)?.toDomain()
+
     suspend fun saveSession(session: WearSession): Long = wearSessionDao.upsert(session.toEntity())
 }

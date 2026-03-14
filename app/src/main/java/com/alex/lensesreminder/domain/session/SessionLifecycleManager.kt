@@ -7,6 +7,8 @@ import com.alex.lensesreminder.core.model.WearSession
 import com.alex.lensesreminder.core.time.LensClock
 import com.alex.lensesreminder.data.repository.LensProfileRepository
 import com.alex.lensesreminder.data.repository.WearSessionRepository
+import com.alex.lensesreminder.domain.scheduler.ReminderNotificationPublisher
+import com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator
 import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
@@ -20,6 +22,8 @@ import kotlinx.coroutines.flow.first
 class SessionLifecycleManager @Inject constructor(
     private val lensProfileRepository: LensProfileRepository,
     private val wearSessionRepository: WearSessionRepository,
+    private val reminderScheduleCoordinator: ReminderScheduleCoordinator,
+    private val reminderNotificationPublisher: ReminderNotificationPublisher,
     private val clock: LensClock,
 ) {
 
@@ -43,7 +47,10 @@ class SessionLifecycleManager @Inject constructor(
         )
 
         val sessionId = wearSessionRepository.saveSession(session)
-        return SessionLifecycleResult.Success(session.copy(id = sessionId))
+        val savedSession = session.copy(id = sessionId)
+        reminderScheduleCoordinator.sync(savedSession)
+        reminderNotificationPublisher.cancelAll(savedSession.id)
+        return SessionLifecycleResult.Success(savedSession)
     }
 
     suspend fun savePlannedSession(
@@ -61,17 +68,30 @@ class SessionLifecycleManager @Inject constructor(
         val plannedSession = WearSession(
             id = currentSession?.id ?: 0,
             plannedStartAt = plannedStartAt,
+            actualStartAt = null,
+            expectedEndAt = null,
+            completedAt = null,
             status = SessionStatus.PLANNED,
-            source = SessionSource.PLANNED
+            source = SessionSource.PLANNED,
+            finalAlertScheduledFor = null,
+            finalAlertSentAt = null,
+            lastReminderSentAt = null,
+            reminderCount = 0
         )
 
         val sessionId = wearSessionRepository.saveSession(plannedSession)
-        return SessionLifecycleResult.Success(plannedSession.copy(id = sessionId))
+        val savedSession = plannedSession.copy(id = sessionId)
+        reminderScheduleCoordinator.sync(savedSession)
+        reminderNotificationPublisher.cancelAll(savedSession.id)
+        return SessionLifecycleResult.Success(savedSession)
     }
 
-    suspend fun activatePlannedSession(): SessionLifecycleResult<WearSession> {
+    suspend fun activatePlannedSession(sessionId: Long? = null): SessionLifecycleResult<WearSession> {
         val plannedSession = wearSessionRepository.getCurrentSession()
-        if (plannedSession?.status != SessionStatus.PLANNED) {
+        if (
+            plannedSession?.status != SessionStatus.PLANNED ||
+            (sessionId != null && plannedSession.id != sessionId)
+        ) {
             return SessionLifecycleResult.Failure(SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND)
         }
 
@@ -84,16 +104,25 @@ class SessionLifecycleManager @Inject constructor(
             finalAlertScheduledFor = computeFinalAlert(
                 actualStartAt = actualStartAt,
                 profile = profile
-            )
+            ),
+            finalAlertSentAt = null,
+            lastReminderSentAt = null,
+            reminderCount = 0
         )
 
         wearSessionRepository.saveSession(activeSession)
+        reminderScheduleCoordinator.sync(activeSession)
+        reminderNotificationPublisher.cancelAll(activeSession.id)
         return SessionLifecycleResult.Success(activeSession)
     }
 
-    suspend fun completeCurrentSession(): SessionLifecycleResult<WearSession> {
+    suspend fun completeCurrentSession(sessionId: Long? = null): SessionLifecycleResult<WearSession> {
         val currentSession = wearSessionRepository.getCurrentSession()
-        if (currentSession == null || currentSession.status !in completableStatuses) {
+        if (
+            currentSession == null ||
+            currentSession.status !in completableStatuses ||
+            (sessionId != null && currentSession.id != sessionId)
+        ) {
             return SessionLifecycleResult.Failure(SessionLifecycleFailure.ACTIVE_SESSION_NOT_FOUND)
         }
 
@@ -102,18 +131,45 @@ class SessionLifecycleManager @Inject constructor(
             status = SessionStatus.COMPLETED
         )
         wearSessionRepository.saveSession(completedSession)
+        reminderScheduleCoordinator.clear(completedSession.id)
+        reminderNotificationPublisher.cancelAll(completedSession.id)
         return SessionLifecycleResult.Success(completedSession)
     }
 
-    suspend fun cancelPlannedSession(): SessionLifecycleResult<WearSession> {
+    suspend fun cancelPlannedSession(sessionId: Long? = null): SessionLifecycleResult<WearSession> {
         val plannedSession = wearSessionRepository.getCurrentSession()
-        if (plannedSession?.status != SessionStatus.PLANNED) {
+        if (
+            plannedSession?.status != SessionStatus.PLANNED ||
+            (sessionId != null && plannedSession.id != sessionId)
+        ) {
             return SessionLifecycleResult.Failure(SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND)
         }
 
         val cancelledSession = plannedSession.copy(status = SessionStatus.CANCELLED)
         wearSessionRepository.saveSession(cancelledSession)
+        reminderScheduleCoordinator.clear(cancelledSession.id)
+        reminderNotificationPublisher.cancelAll(cancelledSession.id)
         return SessionLifecycleResult.Success(cancelledSession)
+    }
+
+    suspend fun snoozePlannedSession(sessionId: Long? = null): SessionLifecycleResult<WearSession> {
+        val plannedSession = wearSessionRepository.getCurrentSession()
+        if (
+            plannedSession?.status != SessionStatus.PLANNED ||
+            (sessionId != null && plannedSession.id != sessionId)
+        ) {
+            return SessionLifecycleResult.Failure(SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND)
+        }
+
+        val baseline = maxOf(clock.now(), plannedSession.plannedStartAt ?: clock.now())
+        val snoozedSession = plannedSession.copy(
+            plannedStartAt = baseline.plus(Duration.ofMinutes(SNOOZE_MINUTES.toLong())),
+            lastReminderSentAt = null
+        )
+        wearSessionRepository.saveSession(snoozedSession)
+        reminderScheduleCoordinator.sync(snoozedSession)
+        reminderNotificationPublisher.cancelAll(snoozedSession.id)
+        return SessionLifecycleResult.Success(snoozedSession)
     }
 
     suspend fun refreshCurrentSessionStatus(): WearSession? {
@@ -126,6 +182,7 @@ class SessionLifecycleManager @Inject constructor(
         ) {
             val overdueSession = currentSession.copy(status = SessionStatus.OVERDUE)
             wearSessionRepository.saveSession(overdueSession)
+            reminderScheduleCoordinator.sync(overdueSession)
             return overdueSession
         }
 
@@ -148,6 +205,7 @@ class SessionLifecycleManager @Inject constructor(
 
     private companion object {
         val completableStatuses = setOf(SessionStatus.ACTIVE, SessionStatus.OVERDUE)
+        const val SNOOZE_MINUTES = 15
     }
 }
 

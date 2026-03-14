@@ -1,6 +1,6 @@
 # Data Layer
 
-This document explains the persistence and repository shape after Phase 2.
+This document explains the persistence and repository shape after Phase 3.
 
 ## Storage split
 
@@ -102,9 +102,10 @@ Repositories provide the interface the rest of the app uses.
 
 - exposes the current session as `Flow<WearSession?>`
 - exposes the current session synchronously for lifecycle rules
+- exposes direct lookup by session id for alarm handling
 - saves session snapshots
 
-Phase 2 uses this repository directly from `SessionLifecycleManager` and `HomeViewModel`.
+Phase 3 now also uses this repository from the reminder alarm handler, which needs to validate and advance a specific scheduled session.
 
 ### `AppPreferencesRepository`
 

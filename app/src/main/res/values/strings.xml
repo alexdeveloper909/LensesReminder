@@ -6,6 +6,7 @@
     <string name="action_plan_for_later">Plan for later</string>
     <string name="action_lenses_on">Lenses on</string>
     <string name="action_lenses_off">Lenses off</string>
+    <string name="action_snooze_15_min">Snooze 15 min</string>
     <string name="action_save_and_continue">Save and continue</string>
     <string name="action_save_plan">Save plan</string>
     <string name="action_done">Done</string>
@@ -71,4 +72,12 @@
     <string name="channel_standard_reminders_description">Planned start, wear-end, and overdue reminder notifications.</string>
     <string name="channel_final_alert_name">Final alerts</string>
     <string name="channel_final_alert_description">High-priority alerts sent close to bedtime.</string>
+    <string name="notification_title_planned_start">Time to put in your lenses</string>
+    <string name="notification_title_wear_end">Time to take your lenses off</string>
+    <string name="notification_title_overdue_repeat">Your lenses are still in</string>
+    <string name="notification_title_final_alert">Final alert: remove your lenses now</string>
+    <string name="notification_body_planned_start">Your planned lens session starts now.</string>
+    <string name="notification_body_wear_end">Your recommended wear time has ended.</string>
+    <string name="notification_body_overdue_repeat">You still have not confirmed that your lenses are out.</string>
+    <string name="notification_body_final_alert">This is your last reminder before sleep. Remove your lenses now.</string>
 </resources>

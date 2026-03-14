@@ -34,6 +34,10 @@ class FakeWearSessionDao : WearSessionDao {
         }
     }
 
+    override suspend fun getSessionById(sessionId: Long): WearSessionEntity? {
+        return sessionState.value?.takeIf { it.id == sessionId }
+    }
+
     override suspend fun upsert(session: WearSessionEntity): Long {
         val resolvedId = if (session.id == 0L) nextId++ else session.id
         sessionState.value = session.copy(id = resolvedId)

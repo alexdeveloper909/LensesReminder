@@ -22,6 +22,15 @@ interface WearSessionDao {
     )
     fun observeCurrentSession(): Flow<WearSessionEntity?>
 
+    @Query(
+        """
+        SELECT * FROM wear_sessions
+        WHERE id = :sessionId
+        LIMIT 1
+        """
+    )
+    suspend fun getSessionById(sessionId: Long): WearSessionEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(session: WearSessionEntity): Long
 }
