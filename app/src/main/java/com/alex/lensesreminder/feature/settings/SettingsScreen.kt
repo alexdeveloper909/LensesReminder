@@ -1,7 +1,5 @@
 package com.alex.lensesreminder.feature.settings
 
-import android.app.TimePickerDialog
-import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,7 +28,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alex.lensesreminder.R
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import com.alex.lensesreminder.ui.component.MaterialTimePickerDialog
 import kotlinx.coroutines.flow.collectLatest
 
 /**
@@ -150,6 +151,7 @@ private fun SettingsEditorContent(
     val timeFormatter = remember {
         DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
     }
+    var showFinalAlertTimePicker by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -240,17 +242,7 @@ private fun SettingsEditorContent(
                     )
                 }
                 OutlinedButton(
-                    onClick = {
-                        TimePickerDialog(
-                            context,
-                            { _, hour, minute ->
-                                onFinalAlertTimeChanged(java.time.LocalTime.of(hour, minute))
-                            },
-                            uiState.finalAlertTime.hour,
-                            uiState.finalAlertTime.minute,
-                            DateFormat.is24HourFormat(context)
-                        ).show()
-                    },
+                    onClick = { showFinalAlertTimePicker = true },
                     enabled = uiState.remindersEnabled,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -280,6 +272,19 @@ private fun SettingsEditorContent(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
+    }
+
+    if (showFinalAlertTimePicker) {
+        MaterialTimePickerDialog(
+            initialTime = uiState.finalAlertTime,
+            is24Hour = android.text.format.DateFormat.is24HourFormat(context),
+            title = stringResource(R.string.label_final_alert_time),
+            onDismiss = { showFinalAlertTimePicker = false },
+            onConfirm = { selectedTime ->
+                showFinalAlertTimePicker = false
+                onFinalAlertTimeChanged(selectedTime)
+            }
+        )
     }
 }
 

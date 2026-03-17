@@ -1,8 +1,6 @@
 package com.alex.lensesreminder.feature.plan
 
 import android.app.DatePickerDialog
-import android.app.TimePickerDialog
-import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,7 +23,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alex.lensesreminder.R
+import com.alex.lensesreminder.ui.component.MaterialTimePickerDialog
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.flow.collectLatest
@@ -91,6 +92,7 @@ private fun PlanSessionScreen(
     val timeFormatter = remember {
         DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
     }
+    var showTimePicker by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -184,17 +186,7 @@ private fun PlanSessionScreen(
                         )
                     }
                     OutlinedButton(
-                        onClick = {
-                            TimePickerDialog(
-                                context,
-                                { _, hour, minute ->
-                                    onTimeChanged(java.time.LocalTime.of(hour, minute))
-                                },
-                                uiState.selectedTime.hour,
-                                uiState.selectedTime.minute,
-                                DateFormat.is24HourFormat(context)
-                            ).show()
-                        },
+                        onClick = { showTimePicker = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
@@ -231,5 +223,18 @@ private fun PlanSessionScreen(
                 Text(text = stringResource(R.string.action_save_plan))
             }
         }
+    }
+
+    if (showTimePicker) {
+        MaterialTimePickerDialog(
+            initialTime = uiState.selectedTime,
+            is24Hour = android.text.format.DateFormat.is24HourFormat(context),
+            title = stringResource(R.string.screen_plan_session_title),
+            onDismiss = { showTimePicker = false },
+            onConfirm = { selectedTime ->
+                showTimePicker = false
+                onTimeChanged(selectedTime)
+            }
+        )
     }
 }
