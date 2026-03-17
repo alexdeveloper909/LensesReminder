@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alex.lensesreminder.R
 import com.alex.lensesreminder.core.model.LensProfile
-import com.alex.lensesreminder.domain.scheduler.DailyStartReminderCoordinator
 import com.alex.lensesreminder.data.repository.AppPreferencesRepository
 import com.alex.lensesreminder.data.repository.LensProfileRepository
+import com.alex.lensesreminder.domain.scheduler.ProfileReminderReconciler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel @Inject constructor(
     private val lensProfileRepository: LensProfileRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
-    private val dailyStartReminderCoordinator: DailyStartReminderCoordinator,
+    private val profileReminderReconciler: ProfileReminderReconciler,
 ) : ViewModel() {
 
     private val mutableUiState = MutableStateFlow(SettingsUiState())
@@ -93,20 +93,20 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            lensProfileRepository.saveProfile(
-                LensProfile(
-                    lensType = currentState.lensType,
-                    maxWearMinutes = maxWearMinutes,
-                    remindersEnabled = currentState.remindersEnabled,
-                    finalAlertTime = currentState.finalAlertTime,
-                    dailyStartReminderTime = currentState.dailyStartReminderTime,
-                    repeatReminderMinutes = currentState.repeatReminderMinutes
-                )
+            val savedProfile = LensProfile(
+                lensType = currentState.lensType,
+                maxWearMinutes = maxWearMinutes,
+                remindersEnabled = currentState.remindersEnabled,
+                finalAlertTime = currentState.finalAlertTime,
+                dailyStartReminderTime = currentState.dailyStartReminderTime,
+                repeatReminderMinutes = currentState.repeatReminderMinutes
             )
+
+            lensProfileRepository.saveProfile(savedProfile)
             if (completeOnboarding) {
                 appPreferencesRepository.setHasCompletedOnboarding(true)
             }
-            dailyStartReminderCoordinator.sync()
+            profileReminderReconciler.reconcile(savedProfile)
             mutableEvents.emit(SettingsEvent.ProfileSaved)
         }
     }

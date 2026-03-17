@@ -42,9 +42,10 @@ class SessionLifecycleManager @Inject constructor(
             expectedEndAt = actualStartAt.plus(Duration.ofMinutes(profile.maxWearMinutes.toLong())),
             status = SessionStatus.ACTIVE,
             source = SessionSource.MANUAL_START,
-            finalAlertScheduledFor = computeFinalAlert(
+            finalAlertScheduledFor = computeFinalAlertTime(
                 actualStartAt = actualStartAt,
-                profile = profile
+                profile = profile,
+                clock = clock
             )
         )
 
@@ -105,16 +106,29 @@ class SessionLifecycleManager @Inject constructor(
             actualStartAt = actualStartAt,
             expectedEndAt = actualStartAt.plus(Duration.ofMinutes(profile.maxWearMinutes.toLong())),
             status = SessionStatus.ACTIVE,
-            finalAlertScheduledFor = computeFinalAlert(
+            finalAlertScheduledFor = computeFinalAlertTime(
                 actualStartAt = actualStartAt,
-                profile = profile
+                profile = profile,
+                clock = clock
             ),
             finalAlertSentAt = null,
             lastReminderSentAt = null,
             reminderCount = 0
         )
 
-        wearSessionRepository.saveSession(activeSession)
+        val didActivate = wearSessionRepository.activatePlannedSession(
+            sessionId = plannedSession.id,
+            source = activeSession.source.name,
+            actualStartAt = actualStartAt,
+            expectedEndAt = activeSession.expectedEndAt ?: return SessionLifecycleResult.Failure(
+                SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND
+            ),
+            finalAlertScheduledFor = activeSession.finalAlertScheduledFor
+        )
+        if (!didActivate) {
+            return SessionLifecycleResult.Failure(SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND)
+        }
+
         reminderScheduleCoordinator.sync(activeSession)
         reminderNotificationPublisher.cancelAll(activeSession.id)
         dailyStartReminderCoordinator.sync(skipToday = true)
@@ -135,7 +149,19 @@ class SessionLifecycleManager @Inject constructor(
             completedAt = clock.now(),
             status = SessionStatus.COMPLETED
         )
-        wearSessionRepository.saveSession(completedSession)
+        val didComplete = wearSessionRepository.completeSession(
+            sessionId = completedSession.id,
+            completedAt = completedSession.completedAt ?: return SessionLifecycleResult.Failure(
+                SessionLifecycleFailure.ACTIVE_SESSION_NOT_FOUND
+            )
+        )
+        if (!didComplete) {
+            wearSessionRepository.getSession(completedSession.id)
+                ?.takeIf { it.completedAt != null }
+                ?.let { return SessionLifecycleResult.Success(it) }
+            return SessionLifecycleResult.Failure(SessionLifecycleFailure.ACTIVE_SESSION_NOT_FOUND)
+        }
+
         reminderScheduleCoordinator.clear(completedSession.id)
         reminderNotificationPublisher.cancelAll(completedSession.id)
         dailyStartReminderCoordinator.sync(skipToday = true)
@@ -152,7 +178,14 @@ class SessionLifecycleManager @Inject constructor(
         }
 
         val cancelledSession = plannedSession.copy(status = SessionStatus.CANCELLED)
-        wearSessionRepository.saveSession(cancelledSession)
+        val didCancel = wearSessionRepository.cancelPlannedSession(cancelledSession.id)
+        if (!didCancel) {
+            wearSessionRepository.getSession(cancelledSession.id)
+                ?.takeIf { it.status == SessionStatus.CANCELLED }
+                ?.let { return SessionLifecycleResult.Success(it) }
+            return SessionLifecycleResult.Failure(SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND)
+        }
+
         reminderScheduleCoordinator.clear(cancelledSession.id)
         reminderNotificationPublisher.cancelAll(cancelledSession.id)
         dailyStartReminderCoordinator.sync()
@@ -173,7 +206,16 @@ class SessionLifecycleManager @Inject constructor(
             plannedStartAt = baseline.plus(Duration.ofMinutes(SNOOZE_MINUTES.toLong())),
             lastReminderSentAt = null
         )
-        wearSessionRepository.saveSession(snoozedSession)
+        val updatedPlannedStartAt = snoozedSession.plannedStartAt
+            ?: return SessionLifecycleResult.Failure(SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND)
+        val didSnooze = wearSessionRepository.snoozePlannedSession(
+            sessionId = snoozedSession.id,
+            plannedStartAt = updatedPlannedStartAt
+        )
+        if (!didSnooze) {
+            return SessionLifecycleResult.Failure(SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND)
+        }
+
         reminderScheduleCoordinator.sync(snoozedSession)
         reminderNotificationPublisher.cancelAll(snoozedSession.id)
         dailyStartReminderCoordinator.sync(skipToday = true)
@@ -189,27 +231,19 @@ class SessionLifecycleManager @Inject constructor(
             !clock.now().isBefore(expectedEndAt)
         ) {
             val overdueSession = currentSession.copy(status = SessionStatus.OVERDUE)
-            wearSessionRepository.saveSession(overdueSession)
+            val didMarkOverdue = wearSessionRepository.markActiveSessionOverdue(
+                sessionId = overdueSession.id,
+                expectedEndAt = expectedEndAt
+            )
+            if (!didMarkOverdue) {
+                return wearSessionRepository.getSession(currentSession.id) ?: currentSession
+            }
             reminderScheduleCoordinator.sync(overdueSession)
             dailyStartReminderCoordinator.sync(skipToday = true)
             return overdueSession
         }
 
         return currentSession
-    }
-
-    private fun computeFinalAlert(
-        actualStartAt: Instant,
-        profile: LensProfile,
-    ): Instant? {
-        if (!profile.remindersEnabled) {
-            return null
-        }
-
-        val zoneId = clock.zoneId()
-        val startDate = actualStartAt.atZone(zoneId).toLocalDate()
-        val candidate = startDate.atTime(profile.finalAlertTime).atZone(zoneId).toInstant()
-        return candidate.takeIf { it.isAfter(actualStartAt) }
     }
 
     private companion object {

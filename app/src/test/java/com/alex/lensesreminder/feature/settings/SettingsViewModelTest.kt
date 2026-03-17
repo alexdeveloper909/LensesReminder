@@ -3,13 +3,19 @@ package com.alex.lensesreminder.feature.settings
 import app.cash.turbine.test
 import com.alex.lensesreminder.R
 import com.alex.lensesreminder.core.model.LensProfile
+import com.alex.lensesreminder.core.model.SessionStatus
+import com.alex.lensesreminder.core.model.WearSession
 import com.alex.lensesreminder.data.local.db.toEntity
 import com.alex.lensesreminder.data.repository.AppPreferencesRepository
 import com.alex.lensesreminder.data.repository.LensProfileRepository
 import com.alex.lensesreminder.domain.scheduler.DailyStartReminderCoordinator
+import com.alex.lensesreminder.domain.scheduler.ProfileReminderReconciler
+import com.alex.lensesreminder.domain.scheduler.ReminderAlarmType
+import com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator
 import com.alex.lensesreminder.testutil.FakeLensProfileDao
 import com.alex.lensesreminder.testutil.FakeLensClock
 import com.alex.lensesreminder.testutil.FakeReminderAlarmScheduler
+import com.alex.lensesreminder.testutil.FakeReminderNotificationPublisher
 import com.alex.lensesreminder.testutil.FakeWearSessionDao
 import com.alex.lensesreminder.testutil.MainDispatcherRule
 import com.alex.lensesreminder.testutil.createTestPreferencesDataStore
@@ -21,6 +27,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -43,11 +50,12 @@ class SettingsViewModelTest {
         val viewModel = SettingsViewModel(
             lensProfileRepository = LensProfileRepository(profileDao),
             appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore()),
-            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
-                LensProfileRepository(profileDao),
-                WearSessionRepository(FakeWearSessionDao()),
-                FakeReminderAlarmScheduler(),
-                FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            profileReminderReconciler = createReminderReconciler(
+                profileRepository = LensProfileRepository(profileDao),
+                sessionRepository = WearSessionRepository(FakeWearSessionDao()),
+                scheduler = FakeReminderAlarmScheduler(),
+                publisher = FakeReminderNotificationPublisher(),
+                clock = FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
             )
         )
 
@@ -72,11 +80,12 @@ class SettingsViewModelTest {
         val viewModel = SettingsViewModel(
             lensProfileRepository = LensProfileRepository(FakeLensProfileDao()),
             appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore()),
-            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
-                LensProfileRepository(FakeLensProfileDao()),
-                WearSessionRepository(FakeWearSessionDao()),
-                FakeReminderAlarmScheduler(),
-                FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            profileReminderReconciler = createReminderReconciler(
+                profileRepository = LensProfileRepository(FakeLensProfileDao()),
+                sessionRepository = WearSessionRepository(FakeWearSessionDao()),
+                scheduler = FakeReminderAlarmScheduler(),
+                publisher = FakeReminderNotificationPublisher(),
+                clock = FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
             )
         )
 
@@ -94,11 +103,12 @@ class SettingsViewModelTest {
         val viewModel = SettingsViewModel(
             lensProfileRepository = profileRepository,
             appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore()),
-            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
-                profileRepository,
-                WearSessionRepository(FakeWearSessionDao()),
-                FakeReminderAlarmScheduler(),
-                FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            profileReminderReconciler = createReminderReconciler(
+                profileRepository = profileRepository,
+                sessionRepository = WearSessionRepository(FakeWearSessionDao()),
+                scheduler = FakeReminderAlarmScheduler(),
+                publisher = FakeReminderNotificationPublisher(),
+                clock = FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
             )
         )
 
@@ -125,11 +135,12 @@ class SettingsViewModelTest {
         val viewModel = SettingsViewModel(
             lensProfileRepository = profileRepository,
             appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore()),
-            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
-                profileRepository,
-                WearSessionRepository(FakeWearSessionDao()),
-                FakeReminderAlarmScheduler(),
-                FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            profileReminderReconciler = createReminderReconciler(
+                profileRepository = profileRepository,
+                sessionRepository = WearSessionRepository(FakeWearSessionDao()),
+                scheduler = FakeReminderAlarmScheduler(),
+                publisher = FakeReminderNotificationPublisher(),
+                clock = FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
             )
         )
 
@@ -155,11 +166,12 @@ class SettingsViewModelTest {
         val viewModel = SettingsViewModel(
             lensProfileRepository = profileRepository,
             appPreferencesRepository = preferencesRepository,
-            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
-                profileRepository,
-                WearSessionRepository(FakeWearSessionDao()),
-                FakeReminderAlarmScheduler(),
-                FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            profileReminderReconciler = createReminderReconciler(
+                profileRepository = profileRepository,
+                sessionRepository = WearSessionRepository(FakeWearSessionDao()),
+                scheduler = FakeReminderAlarmScheduler(),
+                publisher = FakeReminderNotificationPublisher(),
+                clock = FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
             )
         )
 
@@ -186,5 +198,117 @@ class SettingsViewModelTest {
             profileRepository.profile.first()
         )
         assertEquals(true, preferencesRepository.preferences.first().hasCompletedOnboarding)
+    }
+
+    @Test
+    fun `save profile reconciles active session final alert`() = runTest {
+        val clock = FakeLensClock(Instant.parse("2026-03-14T10:00:00Z"))
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        profileRepository.saveProfile(
+            LensProfile(
+                finalAlertTime = LocalTime.of(23, 0),
+                dailyStartReminderTime = LocalTime.of(8, 0)
+            )
+        )
+        val sessionRepository = WearSessionRepository(FakeWearSessionDao())
+        val scheduler = FakeReminderAlarmScheduler()
+        val publisher = FakeReminderNotificationPublisher()
+        val viewModel = SettingsViewModel(
+            lensProfileRepository = profileRepository,
+            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore()),
+            profileReminderReconciler = createReminderReconciler(
+                profileRepository = profileRepository,
+                sessionRepository = sessionRepository,
+                scheduler = scheduler,
+                publisher = publisher,
+                clock = clock
+            )
+        )
+        sessionRepository.saveSession(
+            WearSession(
+                actualStartAt = Instant.parse("2026-03-14T08:00:00Z"),
+                expectedEndAt = Instant.parse("2026-03-14T18:00:00Z"),
+                status = SessionStatus.ACTIVE,
+                finalAlertScheduledFor = Instant.parse("2026-03-14T22:00:00Z")
+            )
+        )
+
+        advanceUntilIdle()
+        viewModel.onFinalAlertTimeChanged(LocalTime.of(21, 30))
+        viewModel.saveProfile(completeOnboarding = false)
+        advanceUntilIdle()
+
+        assertEquals(
+            Instant.parse("2026-03-14T20:30:00Z"),
+            sessionRepository.getCurrentSession()?.finalAlertScheduledFor
+        )
+        assertEquals(
+            Instant.parse("2026-03-14T20:30:00Z"),
+            scheduler.scheduledAlarms.first { it.type == ReminderAlarmType.FINAL_ALERT }.triggerAt
+        )
+    }
+
+    @Test
+    fun `save profile disables and clears current session reminders`() = runTest {
+        val clock = FakeLensClock(Instant.parse("2026-03-14T10:00:00Z"))
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        val sessionRepository = WearSessionRepository(FakeWearSessionDao())
+        val scheduler = FakeReminderAlarmScheduler()
+        val publisher = FakeReminderNotificationPublisher()
+        val viewModel = SettingsViewModel(
+            lensProfileRepository = profileRepository,
+            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore()),
+            profileReminderReconciler = createReminderReconciler(
+                profileRepository = profileRepository,
+                sessionRepository = sessionRepository,
+                scheduler = scheduler,
+                publisher = publisher,
+                clock = clock
+            )
+        )
+        val sessionId = sessionRepository.saveSession(
+            WearSession(
+                actualStartAt = Instant.parse("2026-03-14T08:00:00Z"),
+                expectedEndAt = Instant.parse("2026-03-14T18:00:00Z"),
+                status = SessionStatus.ACTIVE,
+                finalAlertScheduledFor = Instant.parse("2026-03-14T22:00:00Z")
+            )
+        )
+        ReminderScheduleCoordinator(profileRepository, scheduler, clock).sync(
+            sessionRepository.getCurrentSession()!!
+        )
+
+        advanceUntilIdle()
+        viewModel.onRemindersEnabledChanged(false)
+        viewModel.saveProfile(completeOnboarding = false)
+        advanceUntilIdle()
+
+        assertTrue(scheduler.scheduledAlarms.none { it.sessionId == sessionId })
+        assertEquals(listOf(sessionId), publisher.cancelledSessionIds)
+    }
+
+    private fun createReminderReconciler(
+        profileRepository: LensProfileRepository,
+        sessionRepository: WearSessionRepository,
+        scheduler: FakeReminderAlarmScheduler,
+        publisher: FakeReminderNotificationPublisher,
+        clock: FakeLensClock,
+    ): ProfileReminderReconciler {
+        return ProfileReminderReconciler(
+            wearSessionRepository = sessionRepository,
+            reminderScheduleCoordinator = ReminderScheduleCoordinator(
+                profileRepository,
+                scheduler,
+                clock
+            ),
+            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
+                profileRepository,
+                sessionRepository,
+                scheduler,
+                clock
+            ),
+            reminderNotificationPublisher = publisher,
+            clock = clock
+        )
     }
 }

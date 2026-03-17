@@ -76,7 +76,15 @@ class ReminderAlarmHandler @Inject constructor(
         }
 
         val updatedSession = session.copy(lastReminderSentAt = scheduledAt)
-        wearSessionRepository.saveSession(updatedSession)
+        val didUpdate = wearSessionRepository.markPlannedReminderSent(
+            sessionId = session.id,
+            plannedStartAt = scheduledAt,
+            reminderSentAt = scheduledAt
+        )
+        if (!didUpdate) {
+            return
+        }
+
         reminderScheduleCoordinator.sync(updatedSession)
         reminderNotificationPublisher.show(updatedSession, ReminderAlarmType.PLANNED_START)
     }
@@ -113,7 +121,15 @@ class ReminderAlarmHandler @Inject constructor(
             reminderCount = 1
         )
 
-        wearSessionRepository.saveSession(updatedSession)
+        val didUpdate = wearSessionRepository.markWearEndTriggered(
+            sessionId = session.id,
+            expectedEndAt = scheduledAt,
+            reminderSentAt = reminderSentAt
+        )
+        if (!didUpdate) {
+            return
+        }
+
         reminderScheduleCoordinator.sync(updatedSession)
         reminderNotificationPublisher.show(updatedSession, ReminderAlarmType.WEAR_END)
     }
@@ -150,7 +166,16 @@ class ReminderAlarmHandler @Inject constructor(
             reminderCount = session.reminderCount + 1
         )
 
-        wearSessionRepository.saveSession(updatedSession)
+        val previousReminderSentAt = session.lastReminderSentAt ?: return
+        val didUpdate = wearSessionRepository.markOverdueReminderSent(
+            sessionId = session.id,
+            previousReminderSentAt = previousReminderSentAt,
+            reminderSentAt = reminderSentAt
+        )
+        if (!didUpdate) {
+            return
+        }
+
         reminderScheduleCoordinator.sync(updatedSession)
         reminderNotificationPublisher.show(updatedSession, ReminderAlarmType.OVERDUE_REPEAT)
     }
@@ -169,7 +194,15 @@ class ReminderAlarmHandler @Inject constructor(
         }
 
         val updatedSession = session.copy(finalAlertSentAt = clock.now())
-        wearSessionRepository.saveSession(updatedSession)
+        val didUpdate = wearSessionRepository.markFinalAlertSent(
+            sessionId = session.id,
+            scheduledAt = scheduledAt,
+            sentAt = updatedSession.finalAlertSentAt ?: return
+        )
+        if (!didUpdate) {
+            return
+        }
+
         reminderScheduleCoordinator.sync(updatedSession)
         reminderNotificationPublisher.show(updatedSession, ReminderAlarmType.FINAL_ALERT)
     }
