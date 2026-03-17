@@ -126,6 +126,7 @@ internal fun SettingsEditorScreen(
             modifier = Modifier.padding(innerPadding),
             uiState = uiState,
             actionLabel = actionLabel,
+            onMaxWearHoursChanged = viewModel::onMaxWearHoursChanged,
             onMaxWearMinutesChanged = viewModel::onMaxWearMinutesChanged,
             onRemindersEnabledChanged = viewModel::onRemindersEnabledChanged,
             onFinalAlertTimeChanged = viewModel::onFinalAlertTimeChanged,
@@ -139,6 +140,7 @@ private fun SettingsEditorContent(
     modifier: Modifier = Modifier,
     uiState: SettingsUiState,
     actionLabel: String,
+    onMaxWearHoursChanged: (String) -> Unit,
     onMaxWearMinutesChanged: (String) -> Unit,
     onRemindersEnabledChanged: (Boolean) -> Unit,
     onFinalAlertTimeChanged: (java.time.LocalTime) -> Unit,
@@ -186,16 +188,36 @@ private fun SettingsEditorContent(
                     label = stringResource(R.string.label_lens_type),
                     value = stringResource(R.string.label_daily_lenses)
                 )
-                OutlinedTextField(
-                    value = uiState.maxWearMinutesInput,
-                    onValueChange = onMaxWearMinutesChanged,
-                    label = { Text(text = stringResource(R.string.label_maximum_wear_duration)) },
-                    supportingText = {
-                        Text(text = stringResource(R.string.helper_choose_max_wear_time))
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                Text(
+                    text = stringResource(R.string.label_maximum_wear_duration),
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedTextField(
+                        value = uiState.maxWearHoursInput,
+                        onValueChange = onMaxWearHoursChanged,
+                        label = { Text(text = stringResource(R.string.label_hours)) },
+                        placeholder = { Text(text = "12") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = uiState.maxWearMinutesInput,
+                        onValueChange = onMaxWearMinutesChanged,
+                        label = { Text(text = stringResource(R.string.label_minutes)) },
+                        placeholder = { Text(text = "0") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.helper_choose_max_wear_time),
+                    style = MaterialTheme.typography.bodyMedium
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),

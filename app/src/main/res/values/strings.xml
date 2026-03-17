@@ -18,6 +18,8 @@
     <string name="screen_edit_plan_title">Edit plan</string>
     <string name="label_lens_type">Lens type</string>
     <string name="label_maximum_wear_duration">Maximum wear duration</string>
+    <string name="label_hours">Hours</string>
+    <string name="label_minutes">Minutes</string>
     <string name="label_reminders_enabled">Reminders enabled</string>
     <string name="label_final_alert_time">Final alert time</string>
     <string name="label_overdue_interval">Overdue interval</string>

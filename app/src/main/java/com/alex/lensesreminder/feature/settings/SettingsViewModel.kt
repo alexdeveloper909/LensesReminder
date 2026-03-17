@@ -44,10 +44,17 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun onMaxWearHoursChanged(value: String) {
+        mutableUiState.value = mutableUiState.value.copy(
+            isLoading = false,
+            maxWearHoursInput = value.filter(Char::isDigit).take(3)
+        )
+    }
+
     fun onMaxWearMinutesChanged(value: String) {
         mutableUiState.value = mutableUiState.value.copy(
             isLoading = false,
-            maxWearMinutesInput = value.filter(Char::isDigit).take(4)
+            maxWearMinutesInput = value.filter(Char::isDigit).take(2)
         )
     }
 
@@ -67,9 +74,11 @@ class SettingsViewModel @Inject constructor(
 
     fun saveProfile(completeOnboarding: Boolean) {
         val currentState = mutableUiState.value
-        val maxWearMinutes = currentState.maxWearMinutesInput.toIntOrNull()
+        val maxWearHours = currentState.maxWearHoursInput.toIntOrNull() ?: 0
+        val extraMinutes = currentState.maxWearMinutesInput.toIntOrNull() ?: 0
+        val maxWearMinutes = (maxWearHours * 60) + extraMinutes
 
-        if (maxWearMinutes == null || maxWearMinutes <= 0) {
+        if (maxWearMinutes <= 0 || extraMinutes !in 0..59) {
             emitValidationError(R.string.error_invalid_wear_duration)
             return
         }

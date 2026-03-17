@@ -44,7 +44,8 @@ class SettingsViewModelTest {
         assertEquals(
             SettingsUiState(
                 isLoading = false,
-                maxWearMinutesInput = "960",
+                maxWearHoursInput = "16",
+                maxWearMinutesInput = "0",
                 remindersEnabled = false,
                 finalAlertTime = LocalTime.of(21, 45),
                 repeatReminderMinutes = 15
@@ -54,16 +55,18 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `max wear input keeps only digits and caps length`() = runTest {
+    fun `max wear inputs keep only digits and cap length`() = runTest {
         val viewModel = SettingsViewModel(
             lensProfileRepository = LensProfileRepository(FakeLensProfileDao()),
             appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
         )
 
         advanceUntilIdle()
-        viewModel.onMaxWearMinutesChanged("12a34b5")
+        viewModel.onMaxWearHoursChanged("12a34b5")
+        viewModel.onMaxWearMinutesChanged("6x789")
 
-        assertEquals("1234", viewModel.uiState.value.maxWearMinutesInput)
+        assertEquals("123", viewModel.uiState.value.maxWearHoursInput)
+        assertEquals("67", viewModel.uiState.value.maxWearMinutesInput)
     }
 
     @Test
@@ -75,6 +78,7 @@ class SettingsViewModelTest {
         )
 
         advanceUntilIdle()
+        viewModel.onMaxWearHoursChanged("0")
         viewModel.onMaxWearMinutesChanged("0")
 
         viewModel.events.test {
@@ -91,6 +95,29 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `save profile emits validation error when minutes exceed 59`() = runTest {
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        val viewModel = SettingsViewModel(
+            lensProfileRepository = profileRepository,
+            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+        )
+
+        advanceUntilIdle()
+        viewModel.onMaxWearHoursChanged("12")
+        viewModel.onMaxWearMinutesChanged("60")
+
+        viewModel.events.test {
+            viewModel.saveProfile(completeOnboarding = false)
+            advanceUntilIdle()
+
+            assertEquals(
+                SettingsEvent.ValidationError(R.string.error_invalid_wear_duration),
+                awaitItem()
+            )
+        }
+    }
+
+    @Test
     fun `save profile persists changes and completes onboarding when requested`() = runTest {
         val profileRepository = LensProfileRepository(FakeLensProfileDao())
         val preferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
@@ -100,7 +127,7 @@ class SettingsViewModelTest {
         )
 
         advanceUntilIdle()
-        viewModel.onMaxWearMinutesChanged("840")
+        viewModel.onMaxWearHoursChanged("14")
         viewModel.onRemindersEnabledChanged(false)
         viewModel.onFinalAlertTimeChanged(LocalTime.of(23, 30))
 

@@ -217,10 +217,7 @@ private fun HomeScreen(
                     )
                     SummaryRow(
                         label = stringResource(R.string.label_maximum_wear_duration),
-                        value = stringResource(
-                            R.string.label_minutes_suffix,
-                            uiState.profile.maxWearMinutes
-                        )
+                        value = uiState.profile.maxWearMinutes.formatDuration()
                     )
                     SummaryRow(
                         label = stringResource(R.string.label_reminders_enabled),
@@ -467,6 +464,16 @@ private fun Duration?.formatDuration(): String {
     val totalMinutes = toMinutes()
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
+    return if (hours > 0) {
+        "${hours}h ${minutes}m"
+    } else {
+        "${minutes}m"
+    }
+}
+
+private fun Int.formatDuration(): String {
+    val hours = this / 60
+    val minutes = this % 60
     return if (hours > 0) {
         "${hours}h ${minutes}m"
     } else {

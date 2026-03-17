@@ -11,6 +11,7 @@ import java.time.LocalTime
 data class SettingsUiState(
     val isLoading: Boolean = true,
     val lensType: LensType = LensType.DAILY,
+    val maxWearHoursInput: String = "",
     val maxWearMinutesInput: String = "",
     val remindersEnabled: Boolean = true,
     val finalAlertTime: LocalTime = LocalTime.of(22, 0),
@@ -31,7 +32,8 @@ sealed interface SettingsEvent {
 fun LensProfile.toSettingsUiState(): SettingsUiState = SettingsUiState(
     isLoading = false,
     lensType = lensType,
-    maxWearMinutesInput = maxWearMinutes.toString(),
+    maxWearHoursInput = (maxWearMinutes / 60).toString(),
+    maxWearMinutesInput = (maxWearMinutes % 60).toString(),
     remindersEnabled = remindersEnabled,
     finalAlertTime = finalAlertTime,
     repeatReminderMinutes = repeatReminderMinutes
