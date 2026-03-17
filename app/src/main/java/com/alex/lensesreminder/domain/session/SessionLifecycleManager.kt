@@ -7,6 +7,7 @@ import com.alex.lensesreminder.core.model.WearSession
 import com.alex.lensesreminder.core.time.LensClock
 import com.alex.lensesreminder.data.repository.LensProfileRepository
 import com.alex.lensesreminder.data.repository.WearSessionRepository
+import com.alex.lensesreminder.domain.scheduler.DailyStartReminderCoordinator
 import com.alex.lensesreminder.domain.scheduler.ReminderNotificationPublisher
 import com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator
 import java.time.Duration
@@ -23,6 +24,7 @@ class SessionLifecycleManager @Inject constructor(
     private val lensProfileRepository: LensProfileRepository,
     private val wearSessionRepository: WearSessionRepository,
     private val reminderScheduleCoordinator: ReminderScheduleCoordinator,
+    private val dailyStartReminderCoordinator: DailyStartReminderCoordinator,
     private val reminderNotificationPublisher: ReminderNotificationPublisher,
     private val clock: LensClock,
 ) {
@@ -50,6 +52,7 @@ class SessionLifecycleManager @Inject constructor(
         val savedSession = session.copy(id = sessionId)
         reminderScheduleCoordinator.sync(savedSession)
         reminderNotificationPublisher.cancelAll(savedSession.id)
+        dailyStartReminderCoordinator.sync(skipToday = true)
         return SessionLifecycleResult.Success(savedSession)
     }
 
@@ -83,6 +86,7 @@ class SessionLifecycleManager @Inject constructor(
         val savedSession = plannedSession.copy(id = sessionId)
         reminderScheduleCoordinator.sync(savedSession)
         reminderNotificationPublisher.cancelAll(savedSession.id)
+        dailyStartReminderCoordinator.sync(skipToday = true)
         return SessionLifecycleResult.Success(savedSession)
     }
 
@@ -113,6 +117,7 @@ class SessionLifecycleManager @Inject constructor(
         wearSessionRepository.saveSession(activeSession)
         reminderScheduleCoordinator.sync(activeSession)
         reminderNotificationPublisher.cancelAll(activeSession.id)
+        dailyStartReminderCoordinator.sync(skipToday = true)
         return SessionLifecycleResult.Success(activeSession)
     }
 
@@ -133,6 +138,7 @@ class SessionLifecycleManager @Inject constructor(
         wearSessionRepository.saveSession(completedSession)
         reminderScheduleCoordinator.clear(completedSession.id)
         reminderNotificationPublisher.cancelAll(completedSession.id)
+        dailyStartReminderCoordinator.sync(skipToday = true)
         return SessionLifecycleResult.Success(completedSession)
     }
 
@@ -149,6 +155,7 @@ class SessionLifecycleManager @Inject constructor(
         wearSessionRepository.saveSession(cancelledSession)
         reminderScheduleCoordinator.clear(cancelledSession.id)
         reminderNotificationPublisher.cancelAll(cancelledSession.id)
+        dailyStartReminderCoordinator.sync()
         return SessionLifecycleResult.Success(cancelledSession)
     }
 
@@ -169,6 +176,7 @@ class SessionLifecycleManager @Inject constructor(
         wearSessionRepository.saveSession(snoozedSession)
         reminderScheduleCoordinator.sync(snoozedSession)
         reminderNotificationPublisher.cancelAll(snoozedSession.id)
+        dailyStartReminderCoordinator.sync(skipToday = true)
         return SessionLifecycleResult.Success(snoozedSession)
     }
 
@@ -183,6 +191,7 @@ class SessionLifecycleManager @Inject constructor(
             val overdueSession = currentSession.copy(status = SessionStatus.OVERDUE)
             wearSessionRepository.saveSession(overdueSession)
             reminderScheduleCoordinator.sync(overdueSession)
+            dailyStartReminderCoordinator.sync(skipToday = true)
             return overdueSession
         }
 

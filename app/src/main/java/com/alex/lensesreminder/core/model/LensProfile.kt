@@ -5,6 +5,7 @@ import java.time.LocalTime
 const val DEFAULT_PROFILE_ID = 1L
 const val DEFAULT_REPEAT_REMINDER_MINUTES = 15
 const val DEFAULT_MAX_WEAR_MINUTES = 12 * 60
+val DEFAULT_DAILY_START_REMINDER_TIME: LocalTime = LocalTime.of(8, 0)
 
 /**
  * Stored lens preferences used by the session and reminder engine.
@@ -15,5 +16,6 @@ data class LensProfile(
     val maxWearMinutes: Int = DEFAULT_MAX_WEAR_MINUTES,
     val remindersEnabled: Boolean = true,
     val finalAlertTime: LocalTime = LocalTime.of(22, 0),
+    val dailyStartReminderTime: LocalTime = DEFAULT_DAILY_START_REMINDER_TIME,
     val repeatReminderMinutes: Int = DEFAULT_REPEAT_REMINDER_MINUTES,
 )

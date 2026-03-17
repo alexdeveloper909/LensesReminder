@@ -147,6 +147,7 @@ internal fun SettingsEditorScreen(
             onMaxWearMinutesChanged = viewModel::onMaxWearMinutesChanged,
             onRemindersEnabledChanged = viewModel::onRemindersEnabledChanged,
             onFinalAlertTimeChanged = viewModel::onFinalAlertTimeChanged,
+            onDailyStartReminderTimeChanged = viewModel::onDailyStartReminderTimeChanged,
             onSaveClick = { viewModel.saveProfile(completeOnboarding = completeOnboarding) }
         )
     }
@@ -161,6 +162,7 @@ private fun SettingsEditorContent(
     onMaxWearMinutesChanged: (String) -> Unit,
     onRemindersEnabledChanged: (Boolean) -> Unit,
     onFinalAlertTimeChanged: (java.time.LocalTime) -> Unit,
+    onDailyStartReminderTimeChanged: (java.time.LocalTime) -> Unit,
     onSaveClick: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -168,6 +170,7 @@ private fun SettingsEditorContent(
         DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
     }
     var showFinalAlertTimePicker by remember { mutableStateOf(false) }
+    var showDailyStartTimePicker by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -319,6 +322,30 @@ private fun SettingsEditorContent(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
+                Text(
+                    text = stringResource(R.string.label_daily_start_reminder_time),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = stringResource(R.string.helper_set_daily_start_reminder_time),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(
+                    onClick = { showDailyStartTimePicker = true },
+                    enabled = uiState.remindersEnabled,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.label_time_value,
+                            uiState.dailyStartReminderTime.format(timeFormatter)
+                        )
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
                 LabeledValue(
                     label = stringResource(R.string.label_overdue_interval),
                     value = stringResource(R.string.label_every_15_minutes),
@@ -354,6 +381,19 @@ private fun SettingsEditorContent(
             onConfirm = { selectedTime ->
                 showFinalAlertTimePicker = false
                 onFinalAlertTimeChanged(selectedTime)
+            }
+        )
+    }
+
+    if (showDailyStartTimePicker) {
+        MaterialTimePickerDialog(
+            initialTime = uiState.dailyStartReminderTime,
+            is24Hour = android.text.format.DateFormat.is24HourFormat(context),
+            title = stringResource(R.string.label_daily_start_reminder_time),
+            onDismiss = { showDailyStartTimePicker = false },
+            onConfirm = { selectedTime ->
+                showDailyStartTimePicker = false
+                onDailyStartReminderTimeChanged(selectedTime)
             }
         )
     }

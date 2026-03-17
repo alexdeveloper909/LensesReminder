@@ -33,6 +33,10 @@ class ReminderActionReceiver : BroadcastReceiver() {
         receiverScope.launch {
             try {
                 when (intent.action) {
+                    ReminderContract.ACTION_START_SESSION -> {
+                        sessionLifecycleManager.startNow()
+                    }
+
                     ReminderContract.ACTION_ACTIVATE_SESSION -> {
                         sessionLifecycleManager.activatePlannedSession(sessionId)
                     }

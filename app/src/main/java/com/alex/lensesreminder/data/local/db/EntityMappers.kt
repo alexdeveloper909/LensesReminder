@@ -15,6 +15,7 @@ fun LensProfileEntity.toDomain(): LensProfile = LensProfile(
     maxWearMinutes = maxWearMinutes,
     remindersEnabled = remindersEnabled,
     finalAlertTime = finalAlertTime,
+    dailyStartReminderTime = dailyStartReminderTime,
     repeatReminderMinutes = repeatReminderMinutes
 )
 
@@ -24,6 +25,7 @@ fun LensProfile.toEntity(): LensProfileEntity = LensProfileEntity(
     maxWearMinutes = maxWearMinutes,
     remindersEnabled = remindersEnabled,
     finalAlertTime = finalAlertTime,
+    dailyStartReminderTime = dailyStartReminderTime,
     repeatReminderMinutes = repeatReminderMinutes
 )
 

@@ -6,6 +6,9 @@ import com.alex.lensesreminder.core.model.SessionStatus
 import com.alex.lensesreminder.core.model.WearSession
 import com.alex.lensesreminder.data.repository.LensProfileRepository
 import com.alex.lensesreminder.data.repository.WearSessionRepository
+import com.alex.lensesreminder.domain.scheduler.DAILY_START_REMINDER_SESSION_ID
+import com.alex.lensesreminder.domain.scheduler.DailyStartReminderCoordinator
+import com.alex.lensesreminder.domain.scheduler.ReminderAlarmType
 import com.alex.lensesreminder.testutil.FakeLensClock
 import com.alex.lensesreminder.testutil.FakeLensProfileDao
 import com.alex.lensesreminder.testutil.FakeReminderAlarmScheduler
@@ -46,11 +49,18 @@ class SessionLifecycleManagerTest {
             reminderScheduler,
             clock
         )
+        val dailyStartReminderCoordinator = DailyStartReminderCoordinator(
+            profileRepository,
+            repository,
+            reminderScheduler,
+            clock
+        )
         val reminderPublisher = FakeReminderNotificationPublisher()
         val manager = SessionLifecycleManager(
             profileRepository,
             repository,
             reminderCoordinator,
+            dailyStartReminderCoordinator,
             reminderPublisher,
             clock
         )
@@ -67,7 +77,15 @@ class SessionLifecycleManagerTest {
             Instant.parse("2026-03-14T22:00:00Z"),
             session.finalAlertScheduledFor
         )
-        assertEquals(2, reminderScheduler.scheduledAlarms.size)
+        assertEquals(3, reminderScheduler.scheduledAlarms.size)
+        assertTrue(reminderScheduler.scheduledAlarms.any { it.type == ReminderAlarmType.WEAR_END })
+        assertTrue(reminderScheduler.scheduledAlarms.any { it.type == ReminderAlarmType.FINAL_ALERT })
+        assertTrue(
+            reminderScheduler.scheduledAlarms.any {
+                it.sessionId == DAILY_START_REMINDER_SESSION_ID &&
+                    it.type == ReminderAlarmType.DAILY_START
+            }
+        )
     }
 
     @Test
@@ -81,6 +99,12 @@ class SessionLifecycleManagerTest {
             repository,
             com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
                 profileRepository,
+                reminderScheduler,
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                repository,
                 reminderScheduler,
                 clock
             ),
@@ -98,7 +122,9 @@ class SessionLifecycleManagerTest {
         assertEquals(firstPlan.id, savedSession.id)
         assertEquals(SessionStatus.PLANNED, savedSession.status)
         assertEquals(clock.now().plus(Duration.ofHours(4)), savedSession.plannedStartAt)
-        assertEquals(1, reminderScheduler.scheduledAlarms.size)
+        assertEquals(2, reminderScheduler.scheduledAlarms.size)
+        assertTrue(reminderScheduler.scheduledAlarms.any { it.type == ReminderAlarmType.PLANNED_START })
+        assertTrue(reminderScheduler.scheduledAlarms.any { it.type == ReminderAlarmType.DAILY_START })
     }
 
     @Test
@@ -112,6 +138,12 @@ class SessionLifecycleManagerTest {
             repository,
             com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
                 profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                repository,
                 FakeReminderAlarmScheduler(),
                 clock
             ),
@@ -139,6 +171,12 @@ class SessionLifecycleManagerTest {
             repository,
             com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
                 profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                repository,
                 FakeReminderAlarmScheduler(),
                 clock
             ),
@@ -174,6 +212,12 @@ class SessionLifecycleManagerTest {
                 reminderScheduler,
                 clock
             ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                repository,
+                reminderScheduler,
+                clock
+            ),
             FakeReminderNotificationPublisher(),
             clock
         )
@@ -189,10 +233,7 @@ class SessionLifecycleManagerTest {
 
         assertEquals(SessionStatus.OVERDUE, refreshed?.status)
         assertEquals(SessionStatus.OVERDUE, repository.getCurrentSession()?.status)
-        assertEquals(
-            com.alex.lensesreminder.domain.scheduler.ReminderAlarmType.WEAR_END,
-            reminderScheduler.scheduledAlarms.single().type
-        )
+        assertTrue(reminderScheduler.scheduledAlarms.any { it.type == ReminderAlarmType.WEAR_END })
     }
 
     @Test
@@ -206,6 +247,12 @@ class SessionLifecycleManagerTest {
             repository,
             com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
                 profileRepository,
+                reminderScheduler,
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                repository,
                 reminderScheduler,
                 clock
             ),
@@ -224,6 +271,9 @@ class SessionLifecycleManagerTest {
         assertTrue(result is SessionLifecycleResult.Success)
         val snoozedSession = (result as SessionLifecycleResult.Success).value
         assertEquals(clock.now().plus(Duration.ofMinutes(15)), snoozedSession.plannedStartAt)
-        assertEquals(clock.now().plus(Duration.ofMinutes(15)), reminderScheduler.scheduledAlarms.single().triggerAt)
+        assertEquals(
+            clock.now().plus(Duration.ofMinutes(15)),
+            reminderScheduler.scheduledAlarms.first { it.type == ReminderAlarmType.PLANNED_START }.triggerAt
+        )
     }
 }

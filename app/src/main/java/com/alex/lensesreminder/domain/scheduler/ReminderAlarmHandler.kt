@@ -18,6 +18,7 @@ class ReminderAlarmHandler @Inject constructor(
     private val lensProfileRepository: LensProfileRepository,
     private val wearSessionRepository: WearSessionRepository,
     private val reminderScheduleCoordinator: ReminderScheduleCoordinator,
+    private val dailyStartReminderCoordinator: DailyStartReminderCoordinator,
     private val reminderNotificationPublisher: ReminderNotificationPublisher,
     private val clock: LensClock,
 ) {
@@ -27,15 +28,39 @@ class ReminderAlarmHandler @Inject constructor(
         type: ReminderAlarmType,
         scheduledAt: Instant,
     ) {
+        if (type == ReminderAlarmType.DAILY_START && sessionId == DAILY_START_REMINDER_SESSION_ID) {
+            handleDailyStart(scheduledAt)
+            return
+        }
+
         val session = wearSessionRepository.getSession(sessionId) ?: return
         val profile = lensProfileRepository.profile.first()
 
         when (type) {
+            ReminderAlarmType.DAILY_START -> Unit
             ReminderAlarmType.PLANNED_START -> handlePlannedStart(session, scheduledAt)
             ReminderAlarmType.WEAR_END -> handleWearEnd(session, scheduledAt)
             ReminderAlarmType.OVERDUE_REPEAT -> handleOverdueRepeat(session, profile.repeatReminderMinutes, scheduledAt)
             ReminderAlarmType.FINAL_ALERT -> handleFinalAlert(session, scheduledAt)
         }
+    }
+
+    private suspend fun handleDailyStart(
+        scheduledAt: Instant,
+    ) {
+        dailyStartReminderCoordinator.sync(skipToday = true)
+
+        if (wearSessionRepository.getCurrentSession() != null) {
+            return
+        }
+
+        reminderNotificationPublisher.show(
+            WearSession(
+                id = DAILY_START_REMINDER_SESSION_ID,
+                lastReminderSentAt = scheduledAt
+            ),
+            ReminderAlarmType.DAILY_START
+        )
     }
 
     private suspend fun handlePlannedStart(

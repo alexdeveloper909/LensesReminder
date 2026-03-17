@@ -20,6 +20,8 @@ data class LensProfileEntity(
     val remindersEnabled: Boolean,
     @ColumnInfo(name = "final_alert_time")
     val finalAlertTime: LocalTime,
+    @ColumnInfo(name = "daily_start_reminder_time")
+    val dailyStartReminderTime: LocalTime,
     @ColumnInfo(name = "repeat_reminder_minutes")
     val repeatReminderMinutes: Int,
 )

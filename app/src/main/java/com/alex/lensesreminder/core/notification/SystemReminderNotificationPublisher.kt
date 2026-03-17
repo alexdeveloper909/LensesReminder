@@ -44,6 +44,14 @@ class SystemReminderNotificationPublisher @Inject constructor(
             .setContentIntent(contentIntent())
 
         when (type) {
+            ReminderAlarmType.DAILY_START -> {
+                builder.addAction(
+                    0,
+                    context.getString(R.string.action_lenses_on),
+                    actionPendingIntent(session.id, ReminderAction.START_SESSION)
+                )
+            }
+
             ReminderAlarmType.PLANNED_START -> {
                 builder.addAction(
                     0,
@@ -94,6 +102,7 @@ class SystemReminderNotificationPublisher @Inject constructor(
         action: ReminderAction,
     ): PendingIntent {
         val actionName = when (action) {
+            ReminderAction.START_SESSION -> ReminderContract.ACTION_START_SESSION
             ReminderAction.ACTIVATE_SESSION -> ReminderContract.ACTION_ACTIVATE_SESSION
             ReminderAction.SNOOZE_PLANNED -> ReminderContract.ACTION_SNOOZE_PLANNED
             ReminderAction.COMPLETE_SESSION -> ReminderContract.ACTION_COMPLETE_SESSION
@@ -112,6 +121,7 @@ class SystemReminderNotificationPublisher @Inject constructor(
 
     private fun channelId(type: ReminderAlarmType): String = when (type) {
         ReminderAlarmType.FINAL_ALERT -> LensesReminderNotificationChannels.FINAL_ALERTS
+        ReminderAlarmType.DAILY_START,
         ReminderAlarmType.PLANNED_START,
         ReminderAlarmType.WEAR_END,
         ReminderAlarmType.OVERDUE_REPEAT,
@@ -119,6 +129,7 @@ class SystemReminderNotificationPublisher @Inject constructor(
     }
 
     private fun titleRes(type: ReminderAlarmType): Int = when (type) {
+        ReminderAlarmType.DAILY_START -> R.string.notification_title_daily_start
         ReminderAlarmType.PLANNED_START -> R.string.notification_title_planned_start
         ReminderAlarmType.WEAR_END -> R.string.notification_title_wear_end
         ReminderAlarmType.OVERDUE_REPEAT -> R.string.notification_title_overdue_repeat
@@ -126,6 +137,7 @@ class SystemReminderNotificationPublisher @Inject constructor(
     }
 
     private fun bodyRes(type: ReminderAlarmType): Int = when (type) {
+        ReminderAlarmType.DAILY_START -> R.string.notification_body_daily_start
         ReminderAlarmType.PLANNED_START -> R.string.notification_body_planned_start
         ReminderAlarmType.WEAR_END -> R.string.notification_body_wear_end
         ReminderAlarmType.OVERDUE_REPEAT -> R.string.notification_body_overdue_repeat
@@ -134,6 +146,7 @@ class SystemReminderNotificationPublisher @Inject constructor(
 
     private fun priority(type: ReminderAlarmType): Int = when (type) {
         ReminderAlarmType.FINAL_ALERT -> NotificationCompat.PRIORITY_MAX
+        ReminderAlarmType.DAILY_START,
         ReminderAlarmType.PLANNED_START,
         ReminderAlarmType.WEAR_END,
         ReminderAlarmType.OVERDUE_REPEAT,

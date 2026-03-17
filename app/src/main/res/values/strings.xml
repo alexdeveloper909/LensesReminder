@@ -22,6 +22,7 @@
     <string name="label_minutes">Minutes</string>
     <string name="label_reminders_enabled">Reminders enabled</string>
     <string name="label_final_alert_time">Final alert time</string>
+    <string name="label_daily_start_reminder_time">Put lenses on reminder</string>
     <string name="label_overdue_interval">Overdue interval</string>
     <string name="label_daily_lenses">Daily lenses</string>
     <string name="label_every_15_minutes">Every 15 minutes</string>
@@ -44,6 +45,7 @@
     <string name="helper_track_daily_lenses">Track how long your daily lenses have been in.</string>
     <string name="helper_choose_max_wear_time">Choose the maximum safe wear time recommended for your lenses.</string>
     <string name="helper_set_final_alert_time">Set a final alert time for the last warning before sleep.</string>
+    <string name="helper_set_daily_start_reminder_time">Choose the daily time for the reminder that tells you to put your lenses on.</string>
     <string name="helper_repeated_reminders_stop">Repeated reminders stop only after you confirm lenses are off or the final alert is sent.</string>
     <string name="helper_notification_permission">Notification permission is needed for reminders and final alerts.</string>
     <string name="home_empty_state">No lens session for today yet.</string>
@@ -74,13 +76,15 @@
     <string name="error_invalid_planned_start">Please choose a future start time.</string>
     <string name="error_session_action_unavailable">That session action is not available right now.</string>
     <string name="channel_standard_reminders_name">Lens reminders</string>
-    <string name="channel_standard_reminders_description">Planned start, wear-end, and overdue reminder notifications.</string>
+    <string name="channel_standard_reminders_description">Daily start, wear-end, and overdue reminder notifications.</string>
     <string name="channel_final_alert_name">Final alerts</string>
     <string name="channel_final_alert_description">High-priority alerts sent close to bedtime.</string>
+    <string name="notification_title_daily_start">Time to put in your lenses</string>
     <string name="notification_title_planned_start">Time to put in your lenses</string>
     <string name="notification_title_wear_end">Time to take your lenses off</string>
     <string name="notification_title_overdue_repeat">Your lenses are still in</string>
     <string name="notification_title_final_alert">Final alert: remove your lenses now</string>
+    <string name="notification_body_daily_start">Your daily lens reminder is ready.</string>
     <string name="notification_body_planned_start">Your planned lens session starts now.</string>
     <string name="notification_body_wear_end">Your recommended wear time has ended.</string>
     <string name="notification_body_overdue_repeat">You still have not confirmed that your lenses are out.</string>

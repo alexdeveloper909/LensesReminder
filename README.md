@@ -22,10 +22,12 @@ Phase 1, Phase 2, and Phase 3 are implemented:
 - Active and overdue timer UI on the home screen
 - Session completion via `Lenses off`
 - `AlarmManager` reminder scheduling with exact-alarm fallback behavior
-- Planned start reminder notifications
+- Daily `put lenses on` reminder configured from Settings
 - Wear-end and repeated overdue reminder notifications
 - Final alert cutoff notification
 - Background notification actions for `Lenses on`, `Snooze 15 min`, and `Lenses off`
+
+Short note: the Settings screen now includes a dedicated daily `put lenses on` time. The app schedules one reminder each day at that time, and the notification action can start the lens session directly.
 
 Not implemented yet:
 

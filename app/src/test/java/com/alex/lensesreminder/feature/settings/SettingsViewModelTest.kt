@@ -6,9 +6,15 @@ import com.alex.lensesreminder.core.model.LensProfile
 import com.alex.lensesreminder.data.local.db.toEntity
 import com.alex.lensesreminder.data.repository.AppPreferencesRepository
 import com.alex.lensesreminder.data.repository.LensProfileRepository
+import com.alex.lensesreminder.domain.scheduler.DailyStartReminderCoordinator
 import com.alex.lensesreminder.testutil.FakeLensProfileDao
+import com.alex.lensesreminder.testutil.FakeLensClock
+import com.alex.lensesreminder.testutil.FakeReminderAlarmScheduler
+import com.alex.lensesreminder.testutil.FakeWearSessionDao
 import com.alex.lensesreminder.testutil.MainDispatcherRule
 import com.alex.lensesreminder.testutil.createTestPreferencesDataStore
+import com.alex.lensesreminder.data.repository.WearSessionRepository
+import java.time.Instant
 import java.time.LocalTime
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -36,7 +42,13 @@ class SettingsViewModelTest {
         )
         val viewModel = SettingsViewModel(
             lensProfileRepository = LensProfileRepository(profileDao),
-            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore()),
+            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
+                LensProfileRepository(profileDao),
+                WearSessionRepository(FakeWearSessionDao()),
+                FakeReminderAlarmScheduler(),
+                FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            )
         )
 
         advanceUntilIdle()
@@ -48,6 +60,7 @@ class SettingsViewModelTest {
                 maxWearMinutesInput = "0",
                 remindersEnabled = false,
                 finalAlertTime = LocalTime.of(21, 45),
+                dailyStartReminderTime = LocalTime.of(8, 0),
                 repeatReminderMinutes = 15
             ),
             viewModel.uiState.value
@@ -58,7 +71,13 @@ class SettingsViewModelTest {
     fun `max wear inputs keep only digits and cap length`() = runTest {
         val viewModel = SettingsViewModel(
             lensProfileRepository = LensProfileRepository(FakeLensProfileDao()),
-            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore()),
+            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
+                LensProfileRepository(FakeLensProfileDao()),
+                WearSessionRepository(FakeWearSessionDao()),
+                FakeReminderAlarmScheduler(),
+                FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            )
         )
 
         advanceUntilIdle()
@@ -74,7 +93,13 @@ class SettingsViewModelTest {
         val profileRepository = LensProfileRepository(FakeLensProfileDao())
         val viewModel = SettingsViewModel(
             lensProfileRepository = profileRepository,
-            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore()),
+            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
+                profileRepository,
+                WearSessionRepository(FakeWearSessionDao()),
+                FakeReminderAlarmScheduler(),
+                FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            )
         )
 
         advanceUntilIdle()
@@ -99,7 +124,13 @@ class SettingsViewModelTest {
         val profileRepository = LensProfileRepository(FakeLensProfileDao())
         val viewModel = SettingsViewModel(
             lensProfileRepository = profileRepository,
-            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+            appPreferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore()),
+            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
+                profileRepository,
+                WearSessionRepository(FakeWearSessionDao()),
+                FakeReminderAlarmScheduler(),
+                FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            )
         )
 
         advanceUntilIdle()
@@ -123,13 +154,20 @@ class SettingsViewModelTest {
         val preferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
         val viewModel = SettingsViewModel(
             lensProfileRepository = profileRepository,
-            appPreferencesRepository = preferencesRepository
+            appPreferencesRepository = preferencesRepository,
+            dailyStartReminderCoordinator = DailyStartReminderCoordinator(
+                profileRepository,
+                WearSessionRepository(FakeWearSessionDao()),
+                FakeReminderAlarmScheduler(),
+                FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            )
         )
 
         advanceUntilIdle()
         viewModel.onMaxWearHoursChanged("14")
         viewModel.onRemindersEnabledChanged(false)
         viewModel.onFinalAlertTimeChanged(LocalTime.of(23, 30))
+        viewModel.onDailyStartReminderTimeChanged(LocalTime.of(7, 15))
 
         viewModel.events.test {
             viewModel.saveProfile(completeOnboarding = true)
@@ -142,7 +180,8 @@ class SettingsViewModelTest {
             LensProfile(
                 maxWearMinutes = 840,
                 remindersEnabled = false,
-                finalAlertTime = LocalTime.of(23, 30)
+                finalAlertTime = LocalTime.of(23, 30),
+                dailyStartReminderTime = LocalTime.of(7, 15)
             ),
             profileRepository.profile.first()
         )

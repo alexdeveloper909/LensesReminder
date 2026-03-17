@@ -62,7 +62,8 @@ object AppModule {
         context,
         LensesReminderDatabase::class.java,
         DATABASE_NAME
-    ).build()
+    ).addMigrations(LensesReminderDatabase.MIGRATION_1_2)
+        .build()
 
     @Provides
     fun provideLensProfileDao(

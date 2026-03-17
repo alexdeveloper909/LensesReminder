@@ -7,6 +7,7 @@ import com.alex.lensesreminder.core.model.WearSession
 import com.alex.lensesreminder.data.repository.AppPreferencesRepository
 import com.alex.lensesreminder.data.repository.LensProfileRepository
 import com.alex.lensesreminder.data.repository.WearSessionRepository
+import com.alex.lensesreminder.domain.scheduler.DailyStartReminderCoordinator
 import com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator
 import com.alex.lensesreminder.domain.session.SessionLifecycleManager
 import com.alex.lensesreminder.testutil.FakeLensProfileDao
@@ -42,6 +43,12 @@ class HomeViewModelTest {
             sessionRepository,
             ReminderScheduleCoordinator(
                 profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                sessionRepository,
                 FakeReminderAlarmScheduler(),
                 clock
             ),
@@ -97,6 +104,12 @@ class HomeViewModelTest {
             sessionRepository,
             ReminderScheduleCoordinator(
                 profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                sessionRepository,
                 FakeReminderAlarmScheduler(),
                 clock
             ),

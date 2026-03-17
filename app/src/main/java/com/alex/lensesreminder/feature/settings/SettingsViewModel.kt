@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alex.lensesreminder.R
 import com.alex.lensesreminder.core.model.LensProfile
+import com.alex.lensesreminder.domain.scheduler.DailyStartReminderCoordinator
 import com.alex.lensesreminder.data.repository.AppPreferencesRepository
 import com.alex.lensesreminder.data.repository.LensProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 class SettingsViewModel @Inject constructor(
     private val lensProfileRepository: LensProfileRepository,
     private val appPreferencesRepository: AppPreferencesRepository,
+    private val dailyStartReminderCoordinator: DailyStartReminderCoordinator,
 ) : ViewModel() {
 
     private val mutableUiState = MutableStateFlow(SettingsUiState())
@@ -72,6 +74,13 @@ class SettingsViewModel @Inject constructor(
         )
     }
 
+    fun onDailyStartReminderTimeChanged(value: java.time.LocalTime) {
+        mutableUiState.value = mutableUiState.value.copy(
+            isLoading = false,
+            dailyStartReminderTime = value
+        )
+    }
+
     fun saveProfile(completeOnboarding: Boolean) {
         val currentState = mutableUiState.value
         val maxWearHours = currentState.maxWearHoursInput.toIntOrNull() ?: 0
@@ -90,12 +99,14 @@ class SettingsViewModel @Inject constructor(
                     maxWearMinutes = maxWearMinutes,
                     remindersEnabled = currentState.remindersEnabled,
                     finalAlertTime = currentState.finalAlertTime,
+                    dailyStartReminderTime = currentState.dailyStartReminderTime,
                     repeatReminderMinutes = currentState.repeatReminderMinutes
                 )
             )
             if (completeOnboarding) {
                 appPreferencesRepository.setHasCompletedOnboarding(true)
             }
+            dailyStartReminderCoordinator.sync()
             mutableEvents.emit(SettingsEvent.ProfileSaved)
         }
     }

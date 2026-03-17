@@ -41,6 +41,7 @@ class ReminderAlarmHandlerTest {
             profileRepository,
             sessionRepository,
             ReminderScheduleCoordinator(profileRepository, scheduler, clock),
+            DailyStartReminderCoordinator(profileRepository, sessionRepository, scheduler, clock),
             publisher,
             clock
         )
@@ -75,6 +76,7 @@ class ReminderAlarmHandlerTest {
             profileRepository,
             sessionRepository,
             ReminderScheduleCoordinator(profileRepository, scheduler, clock),
+            DailyStartReminderCoordinator(profileRepository, sessionRepository, scheduler, clock),
             publisher,
             clock
         )
@@ -107,6 +109,7 @@ class ReminderAlarmHandlerTest {
             profileRepository,
             sessionRepository,
             ReminderScheduleCoordinator(profileRepository, scheduler, clock),
+            DailyStartReminderCoordinator(profileRepository, sessionRepository, scheduler, clock),
             publisher,
             clock
         )
@@ -116,5 +119,41 @@ class ReminderAlarmHandlerTest {
 
         assertEquals(1, publisher.shownNotifications.size)
         assertEquals(clock.now(), sessionRepository.getCurrentSession()?.lastReminderSentAt)
+    }
+
+    @Test
+    fun `daily start alarm shows notification and reschedules for tomorrow`() = runTest {
+        val clock = FakeLensClock(Instant.parse("2026-03-14T07:00:00Z"))
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        profileRepository.saveProfile(LensProfile(dailyStartReminderTime = java.time.LocalTime.of(8, 0)))
+        val sessionRepository = WearSessionRepository(FakeWearSessionDao())
+        val scheduler = FakeReminderAlarmScheduler()
+        val publisher = FakeReminderNotificationPublisher()
+        val handler = ReminderAlarmHandler(
+            profileRepository,
+            sessionRepository,
+            ReminderScheduleCoordinator(profileRepository, scheduler, clock),
+            DailyStartReminderCoordinator(profileRepository, sessionRepository, scheduler, clock),
+            publisher,
+            clock
+        )
+
+        handler.handle(
+            DAILY_START_REMINDER_SESSION_ID,
+            ReminderAlarmType.DAILY_START,
+            Instant.parse("2026-03-14T08:00:00Z")
+        )
+
+        assertEquals(
+            DAILY_START_REMINDER_SESSION_ID to ReminderAlarmType.DAILY_START,
+            publisher.shownNotifications.single()
+        )
+        assertTrue(
+            scheduler.scheduledAlarms.any {
+                it.sessionId == DAILY_START_REMINDER_SESSION_ID &&
+                    it.type == ReminderAlarmType.DAILY_START &&
+                    it.triggerAt == Instant.parse("2026-03-15T07:00:00Z")
+            }
+        )
     }
 }

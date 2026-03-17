@@ -208,7 +208,6 @@ private fun HomeScreen(
                 zoneId = zoneId,
                 dateTimeFormatter = dateTimeFormatter,
                 onStartNow = onStartNow,
-                onPlanForLater = onPlanForLater,
                 onActivatePlannedSession = onActivatePlannedSession,
                 onEditPlan = onEditPlan,
                 onCancelPlan = onCancelPlan,
@@ -288,7 +287,6 @@ private fun SessionHeroCard(
     zoneId: ZoneId,
     dateTimeFormatter: DateTimeFormatter,
     onStartNow: () -> Unit,
-    onPlanForLater: () -> Unit,
     onActivatePlannedSession: () -> Unit,
     onEditPlan: () -> Unit,
     onCancelPlan: () -> Unit,
@@ -300,10 +298,7 @@ private fun SessionHeroCard(
 
     when (displaySession.status) {
         null, SessionStatus.COMPLETED, SessionStatus.CANCELLED -> {
-            IdleSessionContent(
-                onStartNow = onStartNow,
-                onPlanForLater = onPlanForLater,
-            )
+            IdleSessionContent(onStartNow = onStartNow)
         }
         SessionStatus.PLANNED -> {
             PlannedSessionContent(
@@ -340,7 +335,6 @@ private fun SessionHeroCard(
 @Composable
 private fun IdleSessionContent(
     onStartNow: () -> Unit,
-    onPlanForLater: () -> Unit,
 ) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -394,15 +388,6 @@ private fun IdleSessionContent(
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text(text = stringResource(R.string.action_start_now))
-            }
-            OutlinedButton(
-                onClick = onPlanForLater,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 16.dp),
-            ) {
-                Icon(Icons.Default.DateRange, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(text = stringResource(R.string.action_plan_for_later))
             }
         }
     }
@@ -809,12 +794,12 @@ private fun ProfileSummaryCard(
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 ProfileStat(
-                    value = stringResource(R.string.label_daily_lenses),
-                    label = stringResource(R.string.label_lens_type),
-                )
-                ProfileStat(
                     value = profile.maxWearMinutes.formatDuration(),
                     label = stringResource(R.string.label_max_wear),
+                )
+                ProfileStat(
+                    value = profile.dailyStartReminderTime.format(timeFormatter),
+                    label = stringResource(R.string.label_daily_start_reminder_time),
                 )
                 ProfileStat(
                     value = profile.finalAlertTime.format(timeFormatter),

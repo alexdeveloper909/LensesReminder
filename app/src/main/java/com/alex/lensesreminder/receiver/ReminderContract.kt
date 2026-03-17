@@ -13,6 +13,8 @@ object ReminderContract {
 
     const val ACTION_ACTIVATE_SESSION =
         "com.alex.lensesreminder.action.ACTIVATE_SESSION"
+    const val ACTION_START_SESSION =
+        "com.alex.lensesreminder.action.START_SESSION"
     const val ACTION_SNOOZE_PLANNED =
         "com.alex.lensesreminder.action.SNOOZE_PLANNED"
     const val ACTION_COMPLETE_SESSION =

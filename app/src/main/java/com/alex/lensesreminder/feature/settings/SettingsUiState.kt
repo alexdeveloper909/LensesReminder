@@ -15,6 +15,7 @@ data class SettingsUiState(
     val maxWearMinutesInput: String = "",
     val remindersEnabled: Boolean = true,
     val finalAlertTime: LocalTime = LocalTime.of(22, 0),
+    val dailyStartReminderTime: LocalTime = LocalTime.of(8, 0),
     val repeatReminderMinutes: Int = 15,
 )
 
@@ -36,5 +37,6 @@ fun LensProfile.toSettingsUiState(): SettingsUiState = SettingsUiState(
     maxWearMinutesInput = (maxWearMinutes % 60).toString(),
     remindersEnabled = remindersEnabled,
     finalAlertTime = finalAlertTime,
+    dailyStartReminderTime = dailyStartReminderTime,
     repeatReminderMinutes = repeatReminderMinutes
 )
