@@ -481,24 +481,31 @@ private fun Int.formatDuration(): String {
     }
 }
 
-private data class DisplaySessionUiState(
+internal data class DisplaySessionUiState(
     val status: SessionStatus? = null,
     val plannedStartAt: Instant? = null,
     val actualStartAt: Instant? = null,
     val expectedEndAt: Instant? = null,
+    val effectiveDeadlineAt: Instant? = null,
     val finalAlertScheduledFor: Instant? = null,
     val elapsed: Duration? = null,
     val remaining: Duration? = null,
     val overdueBy: Duration? = null,
 )
 
-private fun HomeSessionUiState.toDisplayState(
+internal fun HomeSessionUiState.toDisplayState(
     currentTime: Instant,
 ): DisplaySessionUiState {
+    val effectiveDeadlineAt = expectedEndAt?.let { expectedEnd ->
+        finalAlertScheduledFor?.let { finalAlert ->
+            minOf(expectedEnd, finalAlert)
+        } ?: expectedEnd
+    } ?: finalAlertScheduledFor
+
     val effectiveStatus = if (
         status == SessionStatus.ACTIVE &&
-        expectedEndAt != null &&
-        !currentTime.isBefore(expectedEndAt)
+        effectiveDeadlineAt != null &&
+        !currentTime.isBefore(effectiveDeadlineAt)
     ) {
         SessionStatus.OVERDUE
     } else {
@@ -509,18 +516,19 @@ private fun HomeSessionUiState.toDisplayState(
         status = effectiveStatus,
         plannedStartAt = plannedStartAt,
         actualStartAt = actualStartAt,
-        expectedEndAt = expectedEndAt,
+        expectedEndAt = effectiveDeadlineAt,
+        effectiveDeadlineAt = effectiveDeadlineAt,
         finalAlertScheduledFor = finalAlertScheduledFor,
         elapsed = actualStartAt?.let {
             Duration.between(it, currentTime).coerceAtLeast(Duration.ZERO)
         },
-        remaining = if (effectiveStatus == SessionStatus.ACTIVE && expectedEndAt != null) {
-            Duration.between(currentTime, expectedEndAt).coerceAtLeast(Duration.ZERO)
+        remaining = if (effectiveStatus == SessionStatus.ACTIVE && effectiveDeadlineAt != null) {
+            Duration.between(currentTime, effectiveDeadlineAt).coerceAtLeast(Duration.ZERO)
         } else {
             null
         },
-        overdueBy = if (effectiveStatus == SessionStatus.OVERDUE && expectedEndAt != null) {
-            Duration.between(expectedEndAt, currentTime).coerceAtLeast(Duration.ZERO)
+        overdueBy = if (effectiveStatus == SessionStatus.OVERDUE && effectiveDeadlineAt != null) {
+            Duration.between(effectiveDeadlineAt, currentTime).coerceAtLeast(Duration.ZERO)
         } else {
             null
         }
