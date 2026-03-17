@@ -4,17 +4,42 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -22,7 +47,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -33,13 +58,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alex.lensesreminder.R
+import com.alex.lensesreminder.core.model.LensProfile
 import com.alex.lensesreminder.core.model.SessionStatus
 import com.alex.lensesreminder.core.notification.NotificationPermissionManager
 import java.time.Duration
@@ -50,9 +83,6 @@ import java.time.format.FormatStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
-/**
- * Home screen route for the session lifecycle phase.
- */
 @Composable
 fun HomeRoute(
     onEditSettings: () -> Unit,
@@ -132,13 +162,24 @@ private fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(text = stringResource(R.string.app_name)) },
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                },
                 actions = {
-                    TextButton(onClick = onEditSettings) {
-                        Text(text = stringResource(R.string.action_edit_settings))
+                    IconButton(onClick = onEditSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.action_edit_settings),
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent,
+                ),
             )
         },
         snackbarHost = {
@@ -150,42 +191,19 @@ private fun HomeScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = 20.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             if (uiState.profile.remindersEnabled && !hasNotificationPermission) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.home_permission_warning),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(
-                                if (uiState.notificationsPermissionRequested) {
-                                    R.string.home_permission_requested_hint
-                                } else {
-                                    R.string.home_permission_not_requested_hint
-                                }
-                            ),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Button(
-                            onClick = onRequestPermission,
-                            modifier = Modifier.align(Alignment.End)
-                        ) {
-                            Text(text = stringResource(R.string.action_enable_reminders))
-                        }
-                    }
-                }
+                NotificationBanner(
+                    wasRequested = uiState.notificationsPermissionRequested,
+                    onRequestPermission = onRequestPermission,
+                )
             }
 
-            SessionCard(
+            SessionHeroCard(
                 session = uiState.session,
+                maxWearMinutes = uiState.profile.maxWearMinutes,
                 currentTime = currentTime,
                 zoneId = zoneId,
                 dateTimeFormatter = dateTimeFormatter,
@@ -194,56 +212,78 @@ private fun HomeScreen(
                 onActivatePlannedSession = onActivatePlannedSession,
                 onEditPlan = onEditPlan,
                 onCancelPlan = onCancelPlan,
-                onCompleteSession = onCompleteSession
+                onCompleteSession = onCompleteSession,
             )
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            ProfileSummaryCard(
+                profile = uiState.profile,
+                timeFormatter = timeFormatter,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+// ── Notification Banner ─────────────────────────────────────────────────────
+
+@Composable
+private fun NotificationBanner(
+    wasRequested: Boolean,
+    onRequestPermission: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Notifications,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.home_permission_warning),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Text(
+                    text = stringResource(
+                        if (wasRequested) R.string.home_permission_requested_hint
+                        else R.string.home_permission_not_requested_hint
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                FilledTonalButton(
+                    onClick = onRequestPermission,
+                    modifier = Modifier.align(Alignment.End),
                 ) {
-                    Text(
-                        text = stringResource(R.string.home_profile_summary_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = stringResource(R.string.home_profile_summary_body_phase_2),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    SummaryRow(
-                        label = stringResource(R.string.label_lens_type),
-                        value = stringResource(R.string.label_daily_lenses)
-                    )
-                    SummaryRow(
-                        label = stringResource(R.string.label_maximum_wear_duration),
-                        value = uiState.profile.maxWearMinutes.formatDuration()
-                    )
-                    SummaryRow(
-                        label = stringResource(R.string.label_reminders_enabled),
-                        value = if (uiState.profile.remindersEnabled) {
-                            stringResource(R.string.label_reminders_on)
-                        } else {
-                            stringResource(R.string.label_reminders_off)
-                        }
-                    )
-                    SummaryRow(
-                        label = stringResource(R.string.label_final_alert_time),
-                        value = uiState.profile.finalAlertTime.format(timeFormatter)
-                    )
-                    SummaryRow(
-                        label = stringResource(R.string.label_overdue_interval),
-                        value = stringResource(R.string.label_every_15_minutes)
-                    )
+                    Text(text = stringResource(R.string.action_enable_reminders))
                 }
             }
         }
     }
 }
 
+// ── Session Hero Card ───────────────────────────────────────────────────────
+
 @Composable
-private fun SessionCard(
+private fun SessionHeroCard(
     session: HomeSessionUiState,
+    maxWearMinutes: Int,
     currentTime: Instant,
     zoneId: ZoneId,
     dateTimeFormatter: DateTimeFormatter,
@@ -258,198 +298,554 @@ private fun SessionCard(
         session.toDisplayState(currentTime)
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    when (displaySession.status) {
+        null, SessionStatus.COMPLETED, SessionStatus.CANCELLED -> {
+            IdleSessionContent(
+                onStartNow = onStartNow,
+                onPlanForLater = onPlanForLater,
+            )
+        }
+        SessionStatus.PLANNED -> {
+            PlannedSessionContent(
+                displaySession = displaySession,
+                zoneId = zoneId,
+                dateTimeFormatter = dateTimeFormatter,
+                onActivate = onActivatePlannedSession,
+                onEdit = onEditPlan,
+                onCancel = onCancelPlan,
+            )
+        }
+        SessionStatus.ACTIVE -> {
+            ActiveSessionContent(
+                displaySession = displaySession,
+                maxWearMinutes = maxWearMinutes,
+                zoneId = zoneId,
+                dateTimeFormatter = dateTimeFormatter,
+                onComplete = onCompleteSession,
+            )
+        }
+        SessionStatus.OVERDUE -> {
+            OverdueSessionContent(
+                displaySession = displaySession,
+                zoneId = zoneId,
+                dateTimeFormatter = dateTimeFormatter,
+                onComplete = onCompleteSession,
+            )
+        }
+    }
+}
+
+// ── Idle State ──────────────────────────────────────────────────────────────
+
+@Composable
+private fun IdleSessionContent(
+    onStartNow: () -> Unit,
+    onPlanForLater: () -> Unit,
+) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            when (displaySession.status) {
-                null -> {
-                    SessionHeader(
-                        status = stringResource(R.string.label_lenses_out),
-                        headline = stringResource(R.string.home_empty_state)
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(36.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.label_lenses_out),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = stringResource(R.string.home_empty_state),
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = stringResource(R.string.helper_track_daily_lenses),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Button(
+                onClick = onStartNow,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 16.dp),
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(text = stringResource(R.string.action_start_now))
+            }
+            OutlinedButton(
+                onClick = onPlanForLater,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 16.dp),
+            ) {
+                Icon(Icons.Default.DateRange, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(text = stringResource(R.string.action_plan_for_later))
+            }
+        }
+    }
+}
+
+// ── Planned State ───────────────────────────────────────────────────────────
+
+@Composable
+private fun PlannedSessionContent(
+    displaySession: DisplaySessionUiState,
+    zoneId: ZoneId,
+    dateTimeFormatter: DateTimeFormatter,
+    onActivate: () -> Unit,
+    onEdit: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
+                        shape = CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DateRange,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.label_session_planned),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            Text(
+                text = stringResource(R.string.state_session_planned),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SessionDetailRow(
+                label = stringResource(R.string.label_planned_start),
+                value = displaySession.plannedStartAt.format(zoneId, dateTimeFormatter),
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = onActivate,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = 14.dp),
+                ) {
+                    Text(text = stringResource(R.string.action_lenses_on))
+                }
+                OutlinedButton(
+                    onClick = onEdit,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(vertical = 14.dp),
+                ) {
+                    Text(text = stringResource(R.string.action_edit_plan))
+                }
+            }
+            TextButton(
+                onClick = onCancel,
+                modifier = Modifier.align(Alignment.End),
+            ) {
+                Text(text = stringResource(R.string.action_cancel))
+            }
+        }
+    }
+}
+
+// ── Active State ────────────────────────────────────────────────────────────
+
+@Composable
+private fun ActiveSessionContent(
+    displaySession: DisplaySessionUiState,
+    maxWearMinutes: Int,
+    zoneId: ZoneId,
+    dateTimeFormatter: DateTimeFormatter,
+    onComplete: () -> Unit,
+) {
+    val maxWearDuration = Duration.ofMinutes(maxWearMinutes.toLong())
+    val progress = if (maxWearDuration.isZero || displaySession.elapsed == null) {
+        0f
+    } else {
+        displaySession.elapsed.toMillis().toFloat() / maxWearDuration.toMillis().toFloat()
+    }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.label_lenses_in),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = stringResource(R.string.state_session_active),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            ProgressRing(
+                progress = progress,
+                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                progressColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(192.dp),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = displaySession.remaining.formatDuration(),
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
                     )
                     Text(
-                        text = stringResource(R.string.helper_track_daily_lenses),
-                        style = MaterialTheme.typography.bodyMedium
+                        text = stringResource(R.string.label_remaining_short),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                     )
-                    Button(
-                        onClick = onStartNow,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = stringResource(R.string.action_start_now))
-                    }
-                    OutlinedButton(
-                        onClick = onPlanForLater,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = stringResource(R.string.action_plan_for_later))
-                    }
                 }
+            }
 
-                SessionStatus.PLANNED -> {
-                    SessionHeader(
-                        status = stringResource(R.string.label_session_planned),
-                        headline = stringResource(R.string.state_session_planned)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            SessionDetailRow(
+                label = stringResource(R.string.label_started_at),
+                value = displaySession.actualStartAt.format(zoneId, dateTimeFormatter),
+                contentColor = contentColor,
+            )
+            SessionDetailRow(
+                label = stringResource(R.string.label_expected_removal),
+                value = displaySession.expectedEndAt.format(zoneId, dateTimeFormatter),
+                contentColor = contentColor,
+            )
+            SessionDetailRow(
+                label = stringResource(R.string.label_elapsed_time),
+                value = displaySession.elapsed.formatDuration(),
+                contentColor = contentColor,
+            )
+            displaySession.finalAlertScheduledFor?.let { finalAlert ->
+                SessionDetailRow(
+                    label = stringResource(R.string.label_final_alert_scheduled),
+                    value = finalAlert.format(zoneId, dateTimeFormatter),
+                    contentColor = contentColor,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Button(
+                onClick = onComplete,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 16.dp),
+            ) {
+                Text(text = stringResource(R.string.action_lenses_off))
+            }
+        }
+    }
+}
+
+// ── Overdue State ───────────────────────────────────────────────────────────
+
+@Composable
+private fun OverdueSessionContent(
+    displaySession: DisplaySessionUiState,
+    zoneId: ZoneId,
+    dateTimeFormatter: DateTimeFormatter,
+    onComplete: () -> Unit,
+) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+                tint = MaterialTheme.colorScheme.error,
+            )
+            Text(
+                text = stringResource(R.string.label_removal_overdue),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.error,
+            )
+            Text(
+                text = stringResource(R.string.state_session_overdue),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            ProgressRing(
+                progress = 1f,
+                trackColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
+                progressColor = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(192.dp),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = displaySession.overdueBy.formatDuration(),
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error,
                     )
-                    SessionDetailRow(
-                        label = stringResource(R.string.label_next_event),
-                        value = displaySession.plannedStartAt.format(zoneId, dateTimeFormatter)
+                    Text(
+                        text = stringResource(R.string.label_overdue_short),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                     )
-                    SessionDetailRow(
-                        label = stringResource(R.string.label_planned_start),
-                        value = displaySession.plannedStartAt.format(zoneId, dateTimeFormatter)
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = onActivatePlannedSession,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(text = stringResource(R.string.action_lenses_on))
-                        }
-                        OutlinedButton(
-                            onClick = onEditPlan,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(text = stringResource(R.string.action_edit_plan))
-                        }
-                    }
-                    TextButton(
-                        onClick = onCancelPlan,
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text(text = stringResource(R.string.action_cancel))
-                    }
                 }
+            }
 
-                SessionStatus.ACTIVE -> {
-                    SessionHeader(
-                        status = stringResource(R.string.label_lenses_in),
-                        headline = stringResource(R.string.state_session_active)
-                    )
-                    SessionTimingSection(
-                        session = displaySession,
-                        zoneId = zoneId,
-                        dateTimeFormatter = dateTimeFormatter
-                    )
-                    Button(
-                        onClick = onCompleteSession,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = stringResource(R.string.action_lenses_off))
-                    }
-                }
+            Spacer(modifier = Modifier.height(8.dp))
 
-                SessionStatus.OVERDUE -> {
-                    SessionHeader(
-                        status = stringResource(R.string.label_removal_overdue),
-                        headline = stringResource(R.string.state_session_overdue)
-                    )
-                    SessionTimingSection(
-                        session = displaySession,
-                        zoneId = zoneId,
-                        dateTimeFormatter = dateTimeFormatter
-                    )
-                    Button(
-                        onClick = onCompleteSession,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(text = stringResource(R.string.action_lenses_off))
-                    }
-                }
+            val contentColor = MaterialTheme.colorScheme.onErrorContainer
+            SessionDetailRow(
+                label = stringResource(R.string.label_elapsed_time),
+                value = displaySession.elapsed.formatDuration(),
+                contentColor = contentColor,
+            )
+            SessionDetailRow(
+                label = stringResource(R.string.label_started_at),
+                value = displaySession.actualStartAt.format(zoneId, dateTimeFormatter),
+                contentColor = contentColor,
+            )
+            displaySession.finalAlertScheduledFor?.let { finalAlert ->
+                SessionDetailRow(
+                    label = stringResource(R.string.label_final_alert_scheduled),
+                    value = finalAlert.format(zoneId, dateTimeFormatter),
+                    contentColor = contentColor,
+                )
+            }
 
-                SessionStatus.COMPLETED,
-                SessionStatus.CANCELLED,
-                -> Unit
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Button(
+                onClick = onComplete,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
+                contentPadding = PaddingValues(vertical = 16.dp),
+            ) {
+                Text(text = stringResource(R.string.action_lenses_off))
+            }
+        }
+    }
+}
+
+// ── Progress Ring ───────────────────────────────────────────────────────────
+
+@Composable
+private fun ProgressRing(
+    progress: Float,
+    trackColor: Color,
+    progressColor: Color,
+    modifier: Modifier = Modifier,
+    strokeWidth: Dp = 10.dp,
+    content: @Composable () -> Unit = {},
+) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 900),
+        label = "ring_progress",
+    )
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val stroke = strokeWidth.toPx()
+            val diameter = minOf(size.width, size.height) - stroke
+            val topLeft = Offset(
+                (size.width - diameter) / 2f,
+                (size.height - diameter) / 2f,
+            )
+            val arcSize = Size(diameter, diameter)
+
+            drawArc(
+                color = trackColor,
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+            drawArc(
+                color = progressColor,
+                startAngle = -90f,
+                sweepAngle = animatedProgress * 360f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(width = stroke, cap = StrokeCap.Round),
+            )
+        }
+        content()
+    }
+}
+
+// ── Shared Detail Row ───────────────────────────────────────────────────────
+
+@Composable
+private fun SessionDetailRow(
+    label: String,
+    value: String,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = contentColor.copy(alpha = 0.7f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Medium,
+            color = contentColor,
+        )
+    }
+}
+
+// ── Profile Summary ─────────────────────────────────────────────────────────
+
+@Composable
+private fun ProfileSummaryCard(
+    profile: LensProfile,
+    timeFormatter: DateTimeFormatter,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.home_profile_summary_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                ProfileStat(
+                    value = stringResource(R.string.label_daily_lenses),
+                    label = stringResource(R.string.label_lens_type),
+                )
+                ProfileStat(
+                    value = profile.maxWearMinutes.formatDuration(),
+                    label = stringResource(R.string.label_max_wear),
+                )
+                ProfileStat(
+                    value = profile.finalAlertTime.format(timeFormatter),
+                    label = stringResource(R.string.label_final_alert_time),
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SessionHeader(
-    status: String,
-    headline: String,
-) {
-    Text(
-        text = status,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary
-    )
-    Text(
-        text = headline,
-        style = MaterialTheme.typography.headlineSmall,
-        fontWeight = FontWeight.SemiBold
-    )
-}
-
-@Composable
-private fun SessionTimingSection(
-    session: DisplaySessionUiState,
-    zoneId: ZoneId,
-    dateTimeFormatter: DateTimeFormatter,
-) {
-    SessionDetailRow(
-        label = stringResource(R.string.label_started_at),
-        value = session.actualStartAt.format(zoneId, dateTimeFormatter)
-    )
-    SessionDetailRow(
-        label = stringResource(R.string.label_expected_removal),
-        value = session.expectedEndAt.format(zoneId, dateTimeFormatter)
-    )
-    SessionDetailRow(
-        label = stringResource(R.string.label_elapsed_time),
-        value = session.elapsed.formatDuration()
-    )
-    if (session.status == SessionStatus.ACTIVE) {
-        SessionDetailRow(
-            label = stringResource(R.string.label_remaining_time),
-            value = session.remaining.formatDuration()
-        )
-    }
-    if (session.status == SessionStatus.OVERDUE) {
-        SessionDetailRow(
-            label = stringResource(R.string.label_overdue_by),
-            value = session.overdueBy.formatDuration()
-        )
-    }
-    session.finalAlertScheduledFor?.let { finalAlert ->
-        SessionDetailRow(
-            label = stringResource(R.string.label_final_alert_scheduled),
-            value = finalAlert.format(zoneId, dateTimeFormatter)
-        )
-    }
-}
-
-@Composable
-private fun SessionDetailRow(
-    label: String,
+private fun ProfileStat(
     value: String,
+    label: String,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium
-        )
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
     }
 }
 
-@Composable
-private fun SummaryRow(
-    label: String,
-    value: String,
-) {
-    SessionDetailRow(label = label, value = value)
-}
+// ── Helpers & data classes ──────────────────────────────────────────────────
 
 private fun Instant?.format(
     zoneId: ZoneId,

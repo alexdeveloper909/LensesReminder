@@ -67,6 +67,9 @@
     <string name="plan_session_final_alert_value">Final alert time: %1$s</string>
     <string name="error_invalid_wear_duration">Please choose a valid wear duration.</string>
     <string name="error_final_alert_required">Final alert time is required when reminders are enabled.</string>
+    <string name="label_remaining_short">remaining</string>
+    <string name="label_overdue_short">overdue</string>
+    <string name="label_max_wear">Max wear</string>
     <string name="error_only_one_active_session">Only one active lens session is allowed at a time.</string>
     <string name="error_invalid_planned_start">Please choose a future start time.</string>
     <string name="error_session_action_unavailable">That session action is not available right now.</string>
