@@ -38,9 +38,10 @@ class SystemReminderNotificationPublisher @Inject constructor(
             .setContentTitle(context.getString(titleRes(type)))
             .setContentText(context.getString(bodyRes(type)))
             .setPriority(priority(type))
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setCategory(category(type))
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
+            .setSound(ReminderNotificationSound.uri(context, type))
             .setContentIntent(contentIntent())
 
         when (type) {
@@ -151,5 +152,11 @@ class SystemReminderNotificationPublisher @Inject constructor(
         ReminderAlarmType.WEAR_END,
         ReminderAlarmType.OVERDUE_REPEAT,
         -> NotificationCompat.PRIORITY_HIGH
+    }
+
+    private fun category(type: ReminderAlarmType): String = if (type == ReminderAlarmType.FINAL_ALERT) {
+        NotificationCompat.CATEGORY_ALARM
+    } else {
+        NotificationCompat.CATEGORY_REMINDER
     }
 }

@@ -49,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -70,10 +71,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.alex.lensesreminder.R
 import com.alex.lensesreminder.core.model.LensProfile
 import com.alex.lensesreminder.core.model.SessionStatus
+import com.alex.lensesreminder.core.notification.ExactAlarmPermissionManager
 import com.alex.lensesreminder.core.notification.NotificationPermissionManager
 import java.time.Duration
 import java.time.Instant
@@ -91,9 +96,13 @@ fun HomeRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val snackbarHostState = remember { SnackbarHostState() }
     var hasNotificationPermission by remember {
         mutableStateOf(NotificationPermissionManager.hasNotificationPermission(context))
+    }
+    var hasExactAlarmPermission by remember {
+        mutableStateOf(ExactAlarmPermissionManager.canScheduleExactAlarms(context))
     }
 
     LaunchedEffect(viewModel) {
@@ -113,10 +122,29 @@ fun HomeRoute(
     ) {
         hasNotificationPermission = NotificationPermissionManager.hasNotificationPermission(context)
     }
+    val exactAlarmLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        hasExactAlarmPermission = ExactAlarmPermissionManager.canScheduleExactAlarms(context)
+    }
+
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasNotificationPermission = NotificationPermissionManager.hasNotificationPermission(context)
+                hasExactAlarmPermission = ExactAlarmPermissionManager.canScheduleExactAlarms(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     HomeScreen(
         uiState = uiState,
         hasNotificationPermission = hasNotificationPermission,
+        hasExactAlarmPermission = hasExactAlarmPermission,
         snackbarHostState = snackbarHostState,
         onRequestPermission = {
             viewModel.onNotificationPermissionRequestLaunched()
@@ -125,6 +153,9 @@ fun HomeRoute(
             } else {
                 hasNotificationPermission = true
             }
+        },
+        onRequestExactAlarmAccess = {
+            ExactAlarmPermissionManager.createRequestIntent(context)?.let(exactAlarmLauncher::launch)
         },
         onStartNow = viewModel::onStartNowClick,
         onPlanForLater = onPlanSession,
@@ -141,8 +172,10 @@ fun HomeRoute(
 private fun HomeScreen(
     uiState: HomeUiState,
     hasNotificationPermission: Boolean,
+    hasExactAlarmPermission: Boolean,
     snackbarHostState: SnackbarHostState,
     onRequestPermission: () -> Unit,
+    onRequestExactAlarmAccess: () -> Unit,
     onStartNow: () -> Unit,
     onPlanForLater: () -> Unit,
     onActivatePlannedSession: () -> Unit,
@@ -198,6 +231,12 @@ private fun HomeScreen(
                 NotificationBanner(
                     wasRequested = uiState.notificationsPermissionRequested,
                     onRequestPermission = onRequestPermission,
+                )
+            }
+
+            if (uiState.profile.remindersEnabled && !hasExactAlarmPermission) {
+                ExactAlarmBanner(
+                    onRequestExactAlarmAccess = onRequestExactAlarmAccess,
                 )
             }
 
@@ -271,6 +310,53 @@ private fun NotificationBanner(
                     modifier = Modifier.align(Alignment.End),
                 ) {
                     Text(text = stringResource(R.string.action_enable_reminders))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExactAlarmBanner(
+    onRequestExactAlarmAccess: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.home_exact_alarm_warning),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+                Text(
+                    text = stringResource(R.string.home_exact_alarm_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+                FilledTonalButton(
+                    onClick = onRequestExactAlarmAccess,
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    Text(text = stringResource(R.string.action_enable_exact_alarms))
                 }
             }
         }

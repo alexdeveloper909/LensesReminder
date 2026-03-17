@@ -14,6 +14,7 @@
     <string name="action_edit_plan">Edit plan</string>
     <string name="action_edit_settings">Edit settings</string>
     <string name="action_enable_reminders">Enable reminders</string>
+    <string name="action_enable_exact_alarms">Enable exact alarms</string>
     <string name="screen_plan_session_title">Plan session</string>
     <string name="screen_edit_plan_title">Edit plan</string>
     <string name="label_lens_type">Lens type</string>
@@ -55,6 +56,9 @@
     <string name="home_permission_warning">Notification permission is off, so reminders may not arrive.</string>
     <string name="home_permission_requested_hint">You can retry the permission prompt from here.</string>
     <string name="home_permission_not_requested_hint">Allow notifications now so future reminders can fire on time.</string>
+    <string name="home_exact_alarm_warning">Exact alarm access is off, so reminder timing can drift.</string>
+    <string name="home_exact_alarm_hint">Allow Alarms &amp; reminders access so wear-end and final alerts can fire on time.</string>
+    <string name="settings_exact_alarm_hint">Android can delay reminder delivery without Alarms &amp; reminders access. Turn it on for reliable wear-end and final alerts.</string>
     <string name="state_session_planned">Your session is planned and ready to start.</string>
     <string name="state_session_active">Your lens session is active.</string>
     <string name="state_session_overdue">Your recommended wear time has ended.</string>
@@ -76,9 +80,9 @@
     <string name="error_invalid_planned_start">Please choose a future start time.</string>
     <string name="error_session_action_unavailable">That session action is not available right now.</string>
     <string name="channel_standard_reminders_name">Lens reminders</string>
-    <string name="channel_standard_reminders_description">Daily start, wear-end, and overdue reminder notifications.</string>
+    <string name="channel_standard_reminders_description">Daily start, wear-end, and overdue reminder notifications with the minor reminder tone.</string>
     <string name="channel_final_alert_name">Final alerts</string>
-    <string name="channel_final_alert_description">High-priority alerts sent close to bedtime.</string>
+    <string name="channel_final_alert_description">High-priority alerts sent close to bedtime with the stronger final alert tone.</string>
     <string name="notification_title_daily_start">Time to put in your lenses</string>
     <string name="notification_title_planned_start">Time to put in your lenses</string>
     <string name="notification_title_wear_end">Time to take your lenses off</string>

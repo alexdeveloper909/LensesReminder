@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alex.lensesreminder.data.repository.AppPreferencesRepository
 import com.alex.lensesreminder.domain.scheduler.DailyStartReminderCoordinator
+import com.alex.lensesreminder.domain.scheduler.ReminderStateRescheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 class RootViewModel @Inject constructor(
     preferencesRepository: AppPreferencesRepository,
     private val dailyStartReminderCoordinator: DailyStartReminderCoordinator,
+    private val reminderStateRescheduler: ReminderStateRescheduler,
 ) : ViewModel() {
 
     init {
@@ -45,6 +47,12 @@ class RootViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
             initialValue = RootUiState()
         )
+
+    fun onAppForegrounded() {
+        viewModelScope.launch {
+            reminderStateRescheduler.syncAll()
+        }
+    }
 }
 
 /**

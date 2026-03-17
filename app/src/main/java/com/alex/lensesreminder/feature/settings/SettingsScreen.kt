@@ -1,5 +1,8 @@
 package com.alex.lensesreminder.feature.settings
 
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alex.lensesreminder.R
+import com.alex.lensesreminder.core.notification.ExactAlarmPermissionManager
 import com.alex.lensesreminder.ui.component.MaterialTimePickerDialog
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -166,11 +170,19 @@ private fun SettingsEditorContent(
     onSaveClick: () -> Unit,
 ) {
     val context = LocalContext.current
+    var hasExactAlarmPermission by remember {
+        mutableStateOf(ExactAlarmPermissionManager.canScheduleExactAlarms(context))
+    }
     val timeFormatter = remember {
         DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
     }
     var showFinalAlertTimePicker by remember { mutableStateOf(false) }
     var showDailyStartTimePicker by remember { mutableStateOf(false) }
+    val exactAlarmLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        hasExactAlarmPermission = ExactAlarmPermissionManager.canScheduleExactAlarms(context)
+    }
 
     Column(
         modifier = modifier
@@ -198,6 +210,41 @@ private fun SettingsEditorContent(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+
+        if (uiState.remindersEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !hasExactAlarmPermission) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                ),
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.home_exact_alarm_warning),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_exact_alarm_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            ExactAlarmPermissionManager.createRequestIntent(context)
+                                ?.let(exactAlarmLauncher::launch)
+                        },
+                        modifier = Modifier.align(Alignment.End),
+                    ) {
+                        Text(text = stringResource(R.string.action_enable_exact_alarms))
+                    }
+                }
             }
         }
 
