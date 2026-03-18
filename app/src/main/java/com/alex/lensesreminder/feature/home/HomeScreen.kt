@@ -1,6 +1,7 @@
 package com.alex.lensesreminder.feature.home
 
 import android.Manifest
+import android.app.DatePickerDialog
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,6 +12,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,10 +40,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -80,8 +86,11 @@ import com.alex.lensesreminder.core.model.LensProfile
 import com.alex.lensesreminder.core.model.SessionStatus
 import com.alex.lensesreminder.core.notification.ExactAlarmPermissionManager
 import com.alex.lensesreminder.core.notification.NotificationPermissionManager
+import com.alex.lensesreminder.ui.component.MaterialTimePickerDialog
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -158,6 +167,7 @@ fun HomeRoute(
             ExactAlarmPermissionManager.createRequestIntent(context)?.let(exactAlarmLauncher::launch)
         },
         onStartNow = viewModel::onStartNowClick,
+        onStartAt = viewModel::onStartAtClick,
         onPlanForLater = onPlanSession,
         onActivatePlannedSession = viewModel::onActivatePlannedSessionClick,
         onEditPlan = onPlanSession,
@@ -177,6 +187,7 @@ private fun HomeScreen(
     onRequestPermission: () -> Unit,
     onRequestExactAlarmAccess: () -> Unit,
     onStartNow: () -> Unit,
+    onStartAt: (Instant) -> Unit,
     onPlanForLater: () -> Unit,
     onActivatePlannedSession: () -> Unit,
     onEditPlan: () -> Unit,
@@ -190,8 +201,15 @@ private fun HomeScreen(
     val dateTimeFormatter = remember {
         DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
     }
+    val dateFormatter = remember {
+        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+    }
+    val localTimeFormatter = remember {
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+    }
     val zoneId = remember { ZoneId.systemDefault() }
     val currentTime by rememberCurrentTime()
+    var showStartSessionSheet by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -246,7 +264,7 @@ private fun HomeScreen(
                 currentTime = currentTime,
                 zoneId = zoneId,
                 dateTimeFormatter = dateTimeFormatter,
-                onStartNow = onStartNow,
+                onStartNow = { showStartSessionSheet = true },
                 onActivatePlannedSession = onActivatePlannedSession,
                 onEditPlan = onEditPlan,
                 onCancelPlan = onCancelPlan,
@@ -260,6 +278,25 @@ private fun HomeScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
         }
+    }
+
+    if (showStartSessionSheet) {
+        StartSessionBottomSheet(
+            currentTime = currentTime,
+            maxWearMinutes = uiState.profile.maxWearMinutes,
+            zoneId = zoneId,
+            dateFormatter = dateFormatter,
+            timeFormatter = localTimeFormatter,
+            onDismiss = { showStartSessionSheet = false },
+            onStartNow = {
+                showStartSessionSheet = false
+                onStartNow()
+            },
+            onStartAt = { actualStartAt ->
+                showStartSessionSheet = false
+                onStartAt(actualStartAt)
+            },
+        )
     }
 }
 
@@ -463,6 +500,12 @@ private fun IdleSessionContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
+            Text(
+                text = stringResource(R.string.helper_log_earlier_start),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
 
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -477,6 +520,182 @@ private fun IdleSessionContent(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun StartSessionBottomSheet(
+    currentTime: Instant,
+    maxWearMinutes: Int,
+    zoneId: ZoneId,
+    dateFormatter: DateTimeFormatter,
+    timeFormatter: DateTimeFormatter,
+    onDismiss: () -> Unit,
+    onStartNow: () -> Unit,
+    onStartAt: (Instant) -> Unit,
+) {
+    val context = LocalContext.current
+    val localNow = remember(currentTime, zoneId) { currentTime.atZone(zoneId) }
+    var selectedDate by remember(localNow) { mutableStateOf(localNow.toLocalDate()) }
+    var selectedTime by remember(localNow) {
+        mutableStateOf(localNow.toLocalTime().withSecond(0).withNano(0))
+    }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    val selectedStartAt = remember(selectedDate, selectedTime, zoneId) {
+        selectedDate.atTime(selectedTime).atZone(zoneId).toInstant()
+    }
+    val expectedEndAt = remember(selectedStartAt, maxWearMinutes) {
+        selectedStartAt.plus(Duration.ofMinutes(maxWearMinutes.toLong()))
+    }
+    val isFutureSelection = selectedStartAt.isAfter(currentTime)
+    val startsOverdue = !expectedEndAt.isAfter(currentTime)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.home_start_session_title),
+                style = MaterialTheme.typography.headlineSmall,
+            )
+            Text(
+                text = stringResource(R.string.home_start_session_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Button(
+                onClick = onStartNow,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 16.dp),
+            ) {
+                Text(text = stringResource(R.string.action_start_now))
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = stringResource(R.string.home_started_earlier_label),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    QuickStartOptionChip(
+                        label = stringResource(R.string.home_start_option_15_min_ago),
+                        onClick = {
+                            onStartAt(currentTime.minus(Duration.ofMinutes(15)))
+                        },
+                    )
+                    QuickStartOptionChip(
+                        label = stringResource(R.string.home_start_option_30_min_ago),
+                        onClick = {
+                            onStartAt(currentTime.minus(Duration.ofMinutes(30)))
+                        },
+                    )
+                    QuickStartOptionChip(
+                        label = stringResource(R.string.home_start_option_1_hour_ago),
+                        onClick = {
+                            onStartAt(currentTime.minus(Duration.ofHours(1)))
+                        },
+                    )
+                }
+
+                Text(
+                    text = stringResource(R.string.home_custom_start_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(
+                    onClick = {
+                        DatePickerDialog(
+                            context,
+                            { _, year, month, dayOfMonth ->
+                                selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
+                            },
+                            selectedDate.year,
+                            selectedDate.monthValue - 1,
+                            selectedDate.dayOfMonth
+                        ).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.home_custom_start_date_value,
+                            selectedDate.format(dateFormatter)
+                        ),
+                    )
+                }
+                OutlinedButton(
+                    onClick = { showTimePicker = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.home_custom_start_time_value,
+                            selectedTime.format(timeFormatter)
+                        ),
+                    )
+                }
+                if (isFutureSelection) {
+                    Text(
+                        text = stringResource(R.string.home_custom_start_invalid_future_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else if (startsOverdue) {
+                    Text(
+                        text = stringResource(R.string.home_custom_start_overdue_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                Button(
+                    onClick = { onStartAt(selectedStartAt) },
+                    enabled = !isFutureSelection,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 16.dp),
+                ) {
+                    Text(text = stringResource(R.string.action_start_from_selected_time))
+                }
+            }
+        }
+    }
+
+    if (showTimePicker) {
+        MaterialTimePickerDialog(
+            initialTime = selectedTime,
+            is24Hour = android.text.format.DateFormat.is24HourFormat(context),
+            title = stringResource(R.string.home_start_session_title),
+            onDismiss = { showTimePicker = false },
+            onConfirm = { time ->
+                showTimePicker = false
+                selectedTime = time.withSecond(0).withNano(0)
+            }
+        )
+    }
+}
+
+@Composable
+private fun QuickStartOptionChip(
+    label: String,
+    onClick: () -> Unit,
+) {
+    FilterChip(
+        selected = false,
+        onClick = onClick,
+        label = { Text(text = label) },
+    )
 }
 
 // ── Planned State ───────────────────────────────────────────────────────────

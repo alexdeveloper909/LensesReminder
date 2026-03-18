@@ -144,4 +144,90 @@ class HomeViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun `starting from an earlier active time emits active message`() = runTest {
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        profileRepository.saveProfile(LensProfile(maxWearMinutes = 600))
+        val preferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+        val sessionRepository = WearSessionRepository(FakeWearSessionDao())
+        val clock = FakeLensClock(Instant.parse("2026-03-14T15:00:00Z"))
+        val sessionLifecycleManager = SessionLifecycleManager(
+            profileRepository,
+            sessionRepository,
+            ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                sessionRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
+        val viewModel = HomeViewModel(
+            profileRepository,
+            preferencesRepository,
+            sessionRepository,
+            sessionLifecycleManager
+        )
+
+        viewModel.events.test {
+            viewModel.onStartAtClick(Instant.parse("2026-03-14T13:00:00Z"))
+            advanceUntilIdle()
+
+            assertEquals(
+                HomeEvent.Message(com.alex.lensesreminder.R.string.state_session_active),
+                awaitItem()
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `starting from an overdue time emits overdue message`() = runTest {
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        profileRepository.saveProfile(LensProfile(maxWearMinutes = 120))
+        val preferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+        val sessionRepository = WearSessionRepository(FakeWearSessionDao())
+        val clock = FakeLensClock(Instant.parse("2026-03-14T15:00:00Z"))
+        val sessionLifecycleManager = SessionLifecycleManager(
+            profileRepository,
+            sessionRepository,
+            ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                sessionRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
+        val viewModel = HomeViewModel(
+            profileRepository,
+            preferencesRepository,
+            sessionRepository,
+            sessionLifecycleManager
+        )
+
+        viewModel.events.test {
+            viewModel.onStartAtClick(Instant.parse("2026-03-14T11:30:00Z"))
+            advanceUntilIdle()
+
+            assertEquals(
+                HomeEvent.Message(com.alex.lensesreminder.R.string.state_session_overdue),
+                awaitItem()
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }

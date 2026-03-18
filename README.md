@@ -11,6 +11,7 @@ The current app supports the core daily lens workflow:
 - onboarding flow for creating the initial lens profile
 - home screen dashboard for the current lens state
 - `Start now` flow for immediate wear sessions
+- delayed manual start flow for logging the real wear start time when the user forgot to start on time
 - planned session create, edit, activate, and cancel flows
 - active and overdue session timing on the home screen
 - `Lenses off` completion flow

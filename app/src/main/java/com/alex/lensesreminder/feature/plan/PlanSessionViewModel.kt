@@ -145,6 +145,7 @@ sealed interface PlanSessionEvent {
 
 private fun SessionLifecycleFailure.toMessageId(): Int = when (this) {
     SessionLifecycleFailure.EXISTING_OPEN_SESSION -> R.string.error_only_one_active_session
+    SessionLifecycleFailure.INVALID_ACTUAL_START -> R.string.error_invalid_actual_start
     SessionLifecycleFailure.INVALID_PLANNED_TIME -> R.string.error_invalid_planned_start
     SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND,
     SessionLifecycleFailure.ACTIVE_SESSION_NOT_FOUND,

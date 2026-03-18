@@ -9,7 +9,7 @@ Lenses Reminder is a safety-focused Android app for people who wear contact lens
 The app is built around one core workflow:
 
 1. the user configures their lens profile and reminder settings
-2. the user starts a session now or plans one for later
+2. the user starts a session now, backdates it to when lenses actually went in, or plans one for later
 3. the app tracks the active wear session
 4. the app reminds the user when the safe wear window ends
 5. if the user does not confirm `Lenses off`, the app continues sending overdue reminders
@@ -27,6 +27,7 @@ The current codebase already implements the main MVP reminder flow:
 - settings screen for profile and reminder configuration
 - planned session create, edit, activate, and cancel
 - immediate `Start now` session creation
+- delayed manual session start using the real past start time
 - active and overdue timer UI
 - session completion through `Lenses off`
 - daily `put lenses on` reminder from Settings

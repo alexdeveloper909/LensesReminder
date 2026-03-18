@@ -31,17 +31,30 @@ class SessionLifecycleManager @Inject constructor(
 ) {
 
     suspend fun startNow(): SessionLifecycleResult<WearSession> {
+        return startAt(clock.now())
+    }
+
+    suspend fun startAt(
+        actualStartAt: Instant,
+    ): SessionLifecycleResult<WearSession> {
         val currentSession = wearSessionRepository.getCurrentSession()
         if (currentSession != null) {
             return SessionLifecycleResult.Failure(SessionLifecycleFailure.EXISTING_OPEN_SESSION)
         }
+        if (actualStartAt.isAfter(clock.now())) {
+            return SessionLifecycleResult.Failure(SessionLifecycleFailure.INVALID_ACTUAL_START)
+        }
 
         val profile = lensProfileRepository.profile.first()
-        val actualStartAt = clock.now()
+        val expectedEndAt = actualStartAt.plus(Duration.ofMinutes(profile.maxWearMinutes.toLong()))
         val session = WearSession(
             actualStartAt = actualStartAt,
-            expectedEndAt = actualStartAt.plus(Duration.ofMinutes(profile.maxWearMinutes.toLong())),
-            status = SessionStatus.ACTIVE,
+            expectedEndAt = expectedEndAt,
+            status = if (expectedEndAt.isAfter(clock.now())) {
+                SessionStatus.ACTIVE
+            } else {
+                SessionStatus.OVERDUE
+            },
             source = SessionSource.MANUAL_START,
             finalAlertScheduledFor = computeFinalAlertTime(
                 actualStartAt = actualStartAt,
@@ -270,6 +283,7 @@ sealed interface SessionLifecycleResult<out T> {
 
 enum class SessionLifecycleFailure {
     EXISTING_OPEN_SESSION,
+    INVALID_ACTUAL_START,
     INVALID_PLANNED_TIME,
     PLANNED_SESSION_NOT_FOUND,
     ACTIVE_SESSION_NOT_FOUND,

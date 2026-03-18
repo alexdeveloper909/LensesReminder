@@ -62,7 +62,22 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = sessionLifecycleManager.startNow()) {
                 is SessionLifecycleResult.Success -> {
-                    mutableEvents.emit(HomeEvent.Message(com.alex.lensesreminder.R.string.state_session_active))
+                    emitStartSuccess(result.value)
+                }
+                is SessionLifecycleResult.Failure -> {
+                    emitFailure(result.reason)
+                }
+            }
+        }
+    }
+
+    fun onStartAtClick(
+        actualStartAt: Instant,
+    ) {
+        viewModelScope.launch {
+            when (val result = sessionLifecycleManager.startAt(actualStartAt)) {
+                is SessionLifecycleResult.Success -> {
+                    emitStartSuccess(result.value)
                 }
                 is SessionLifecycleResult.Failure -> {
                     emitFailure(result.reason)
@@ -115,12 +130,26 @@ class HomeViewModel @Inject constructor(
             SessionLifecycleFailure.EXISTING_OPEN_SESSION -> {
                 com.alex.lensesreminder.R.string.error_only_one_active_session
             }
+            SessionLifecycleFailure.INVALID_ACTUAL_START -> {
+                com.alex.lensesreminder.R.string.error_invalid_actual_start
+            }
             SessionLifecycleFailure.INVALID_PLANNED_TIME -> {
                 com.alex.lensesreminder.R.string.error_invalid_planned_start
             }
             SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND,
             SessionLifecycleFailure.ACTIVE_SESSION_NOT_FOUND,
             -> com.alex.lensesreminder.R.string.error_session_action_unavailable
+        }
+        mutableEvents.emit(HomeEvent.Message(messageId))
+    }
+
+    private suspend fun emitStartSuccess(
+        session: WearSession,
+    ) {
+        val messageId = if (session.status == com.alex.lensesreminder.core.model.SessionStatus.OVERDUE) {
+            com.alex.lensesreminder.R.string.state_session_overdue
+        } else {
+            com.alex.lensesreminder.R.string.state_session_active
         }
         mutableEvents.emit(HomeEvent.Message(messageId))
     }

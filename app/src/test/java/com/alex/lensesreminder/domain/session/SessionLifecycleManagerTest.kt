@@ -93,6 +93,107 @@ class SessionLifecycleManagerTest {
     }
 
     @Test
+    fun `start at uses selected past time for expected end`() = runTest {
+        val clock = FakeLensClock(Instant.parse("2026-03-14T15:00:00Z"))
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        profileRepository.saveProfile(LensProfile(maxWearMinutes = 600))
+        val repository = WearSessionRepository(FakeWearSessionDao())
+        val reminderScheduler = FakeReminderAlarmScheduler()
+        val manager = SessionLifecycleManager(
+            profileRepository,
+            repository,
+            com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
+                profileRepository,
+                reminderScheduler,
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                repository,
+                reminderScheduler,
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
+
+        val result = manager.startAt(Instant.parse("2026-03-14T13:00:00Z"))
+
+        assertTrue(result is SessionLifecycleResult.Success)
+        val session = (result as SessionLifecycleResult.Success).value
+        assertEquals(SessionStatus.ACTIVE, session.status)
+        assertEquals(Instant.parse("2026-03-14T13:00:00Z"), session.actualStartAt)
+        assertEquals(Instant.parse("2026-03-14T23:00:00Z"), session.expectedEndAt)
+    }
+
+    @Test
+    fun `start at creates overdue session when selected time exceeds wear window`() = runTest {
+        val clock = FakeLensClock(Instant.parse("2026-03-14T15:00:00Z"))
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        profileRepository.saveProfile(LensProfile(maxWearMinutes = 120))
+        val repository = WearSessionRepository(FakeWearSessionDao())
+        val reminderScheduler = FakeReminderAlarmScheduler()
+        val manager = SessionLifecycleManager(
+            profileRepository,
+            repository,
+            com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
+                profileRepository,
+                reminderScheduler,
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                repository,
+                reminderScheduler,
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
+
+        val result = manager.startAt(Instant.parse("2026-03-14T11:30:00Z"))
+
+        assertTrue(result is SessionLifecycleResult.Success)
+        val session = (result as SessionLifecycleResult.Success).value
+        assertEquals(SessionStatus.OVERDUE, session.status)
+        assertEquals(
+            clock.now(),
+            reminderScheduler.scheduledAlarms.first { it.type == ReminderAlarmType.WEAR_END }.triggerAt
+        )
+    }
+
+    @Test
+    fun `start at rejects future times`() = runTest {
+        val clock = FakeLensClock(Instant.parse("2026-03-14T15:00:00Z"))
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        val repository = WearSessionRepository(FakeWearSessionDao())
+        val manager = SessionLifecycleManager(
+            profileRepository,
+            repository,
+            com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                repository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
+
+        val result = manager.startAt(clock.now().plus(Duration.ofMinutes(5)))
+
+        assertEquals(
+            SessionLifecycleResult.Failure(SessionLifecycleFailure.INVALID_ACTUAL_START),
+            result
+        )
+    }
+
+    @Test
     fun `save planned session updates existing planned session`() = runTest {
         val clock = FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
         val profileRepository = LensProfileRepository(FakeLensProfileDao())
