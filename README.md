@@ -1,40 +1,36 @@
 # Lenses Reminder
 
-Android app for tracking daily contact lens wear time and delivering reminders before the safe wear window ends and before sleep.
+Lenses Reminder is an Android app for tracking daily contact lens wear and sending reminders before the safe wear window ends, after the session becomes overdue, and before the user's configured final alert cutoff.
 
-The product direction lives in [docs/vision/vision.md](docs/vision/vision.md) and the implementation plan lives in [docs/spec/technical-spec.md](docs/spec/technical-spec.md). This README focuses on the codebase as it exists after Phase 3: reminder engine.
+The codebase is built with Kotlin, Jetpack Compose, Room, DataStore, Hilt, and AlarmManager-based reminder scheduling.
 
-## Current status
+## What the App Does
 
-Phase 1, Phase 2, and Phase 3 are implemented:
+The current app supports the core daily lens workflow:
 
-- Compose app shell with onboarding, home, and settings navigation
-- Persistent lens profile/settings storage
+- onboarding flow for creating the initial lens profile
+- home screen dashboard for the current lens state
+- `Start now` flow for immediate wear sessions
+- planned session create, edit, activate, and cancel flows
+- active and overdue session timing on the home screen
+- `Lenses off` completion flow
+- daily `put lenses on` reminder configured from Settings
+- wear-end reminders, repeated overdue reminders, and a final alert cutoff
+- background notification actions for `Lenses on`, `Snooze 15 min`, and `Lenses off`
+- alarm rescheduling after boot, app replacement, time changes, timezone changes, and exact-alarm permission state changes
+
+## Current State
+
+- Compose-based onboarding, home, planning, and settings screens
+- persistent lens profile storage
+- Room-backed wear session storage with exported schemas
 - DataStore-backed app preferences
-- Room database and schema export
-- Notification channel bootstrap
-- Notification permission entry point on the home screen
-- Hilt dependency injection foundation
-- Clock abstraction for later scheduling logic
-- `Start now` session creation
-- Planned session create/edit/cancel flow
-- Planned-session activation into an active session
-- Active and overdue timer UI on the home screen
-- Session completion via `Lenses off`
-- `AlarmManager` reminder scheduling with exact-alarm fallback behavior
-- Daily `put lenses on` reminder configured from Settings
-- Wear-end and repeated overdue reminder notifications
-- Final alert cutoff notification
-- Background notification actions for `Lenses on`, `Snooze 15 min`, and `Lenses off`
+- Hilt dependency injection
+- notification channel setup and notification permission handling
+- a domain-layer session lifecycle manager
+- a reminder engine that recomputes alarms from persisted state
 
-Short note: the Settings screen now includes a dedicated daily `put lenses on` time. The app schedules one reminder each day at that time, and the notification action can start the lens session directly.
-
-Not implemented yet:
-
-- reboot/time-change recovery
-- manual start correction
-
-## Tech stack
+## Tech Stack
 
 - Kotlin
 - Jetpack Compose
@@ -44,36 +40,108 @@ Not implemented yet:
 - DataStore Preferences
 - Hilt
 - KSP
+- AlarmManager
 
-## Project structure
+## Architecture
 
 Main package: `com.alex.lensesreminder`
 
-- `app/`: root app entry points, startup state, navigation, DI
-- `core/`: domain-neutral models and helpers
-- `data/`: Room, DataStore, repositories, mappers
-- `feature/`: screen-level UI and view-models
-- `ui/theme/`: Compose theme
+- `app/`: app entry points, startup routing, DI, navigation
+- `core/`: shared models, clock abstraction, notifications
+- `data/`: Room entities/DAOs, DataStore models, repositories, mappers
+- `domain/`: session lifecycle and reminder scheduling logic
+- `receiver/`: BroadcastReceiver entry points for alarms, actions, and system rescheduling
+- `feature/`: screen-specific UI and view-models
+- `ui/`: theme and reusable UI components
 
-## Build
+Dependency direction is intentionally layered:
 
-Assemble the debug app:
+- `feature -> domain/data/core`
+- `domain -> data/core`
+- `data -> core`
+- `app -> everything`
+
+This keeps business rules out of composables and keeps storage concerns out of the UI layer.
+
+## Reminder Model
+
+The reminder engine uses persisted app state as the source of truth and rebuilds alarms from that state.
+
+- planned sessions schedule a single planned-start reminder
+- active sessions schedule a wear-end reminder and, when applicable, a final alert
+- overdue sessions continue with repeated reminders until the final alert cutoff
+- stale or duplicate alarms are ignored through alarm validation and idempotent handling
+- system-event recovery resynchronizes reminders after events that can invalidate alarms
+
+## Requirements
+
+- Android Studio with Android SDK support
+- JDK 17
+- Android device or emulator with API 24+
+
+Project Android targets:
+
+- `minSdk = 24`
+- `targetSdk = 36`
+- `compileSdk = 36`
+
+## Getting Started
+
+1. Open the project in Android Studio.
+2. Let Gradle sync.
+3. Run the `app` configuration on a device or emulator.
+
+If you prefer the command line, assemble the debug APK with:
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-## Quality gate
+## Testing
 
-Run the current JVM test suite:
+Run the current JVM/unit test suite:
 
 ```bash
 ./gradlew :app:testDebugUnitTest
 ```
 
-## Documentation
+Useful additional commands:
 
-Code-oriented docs are in `docs/code/`:
+```bash
+./gradlew :app:assembleDebug
+./gradlew :app:test
+./gradlew :app:lint
+```
+
+## Data and Persistence
+
+The app uses two persistence layers:
+
+- Room for structured product data such as lens profiles and wear sessions
+- DataStore Preferences for app-level flags such as onboarding completion and permission-related UI state
+
+Room schema export is enabled via KSP and written to `app/schemas/`.
+
+## Notifications and Permissions
+
+The app declares and uses:
+
+- `POST_NOTIFICATIONS`
+- `SCHEDULE_EXACT_ALARM`
+- `RECEIVE_BOOT_COMPLETED`
+- `VIBRATE`
+
+Notification reliability depends on platform capabilities and user settings. When exact alarms are unavailable, reminder delivery falls back to inexact alarms.
+
+## Project Documentation
+
+Product and implementation context lives in:
+
+- [project-overview.md](project-overview.md)
+- [docs/vision/vision.md](docs/vision/vision.md)
+- [docs/spec/technical-spec.md](docs/spec/technical-spec.md)
+
+Code-oriented documentation:
 
 - [docs/code/architecture.md](docs/code/architecture.md)
 - [docs/code/data-layer.md](docs/code/data-layer.md)
@@ -83,4 +151,10 @@ Code-oriented docs are in `docs/code/`:
 
 ## Notes
 
-The project now builds on the AGP 9 default built-in Kotlin/new DSL path. Hilt and KSP were updated to versions that compile cleanly in that setup, so no AGP compatibility opt-out flags are currently needed in `gradle.properties`.
+The project uses the AGP 9 built-in Kotlin/new DSL path and currently documents a working setup around:
+
+- AGP `9.1.0`
+- Hilt `2.59.1`
+- KSP `2.3.6`
+
+Java 17 compatibility and core library desugaring are enabled so the app can use Java time APIs such as `Instant`, `LocalTime`, and `ZoneId`.

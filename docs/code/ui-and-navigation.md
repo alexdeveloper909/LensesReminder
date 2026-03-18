@@ -1,6 +1,6 @@
 # UI And Navigation
 
-This document explains the current Compose UI structure after Phase 2.
+This document explains the current Compose UI structure.
 
 ## Entry points
 
@@ -51,20 +51,22 @@ Implementation notes:
 
 Package: `feature/home/`
 
-Purpose in Phase 2:
+Purpose:
 
 - show the current session state: out, planned, active, or overdue
 - expose `Start now`, `Plan for later`, `Lenses on`, `Lenses off`, and plan-cancel actions
 - render elapsed, remaining, and overdue timing while the app is open
 - summarize the saved reminder profile
 - expose notification permission handling
+- expose exact-alarm permission handling
 - provide navigation to settings and plan editing
 
 Implementation notes:
 
-- `HomeViewModel` combines profile data, app preferences, the current session, and a clock ticker
-- overdue state is reflected in the UI as soon as the expected end time passes
-- the screen still stops short of scheduling notifications
+- `HomeViewModel` combines profile data, app preferences, and the current session
+- the screen itself maintains a lightweight live clock for timer display while open
+- the screen shows both notification-permission and exact-alarm-warning banners when reminders are enabled and the relevant access is missing
+- session scheduling itself is handled in domain code, not in the composable
 
 ### Plan session
 
@@ -93,7 +95,8 @@ Implementation notes:
 
 - shared editor composable between onboarding and settings
 - validates wear duration before save
-- supports reminder toggle and final alert time selection
+- supports reminder toggle, final alert time selection, and daily `put lenses on` reminder time selection
+- profile save triggers reminder reconciliation so current alarms stay aligned with the new settings
 
 ## View-model responsibilities
 
@@ -112,7 +115,7 @@ Implementation notes:
 ### `HomeViewModel`
 
 - combines profile state with app preference state
-- combines current session state with a live clock ticker
+- combines current session state with persisted preferences
 - records that a notification permission request was launched
 - delegates lifecycle actions to `SessionLifecycleManager`
 
@@ -132,4 +135,14 @@ Behavior:
 - the user can trigger the permission prompt from that card
 - the app remembers whether a request has already been attempted
 
-This is groundwork for reminder reliability messaging in later phases, when actual reminder scheduling is added.
+## Exact alarm UX
+
+The current exact-alarm entry point also lives on the home screen.
+
+Behavior:
+
+- if reminders are enabled and exact-alarm access is unavailable, a warning card is shown
+- the user can jump to the system screen for exact-alarm access from that card
+- the screen re-checks permission state on resume
+
+This is a lightweight operational UX, not yet a fully developed education or dismissal flow.

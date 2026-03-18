@@ -1,6 +1,6 @@
 # Code Architecture
 
-This document explains how the current codebase is organized and how the major layers interact after Phase 3.
+This document explains how the current codebase is organized and how the main layers interact in the current implementation.
 
 ## High-level flow
 
@@ -13,7 +13,7 @@ From there:
 3. `LensesReminderNavHost` chooses between onboarding, home, and settings
 4. Feature view-models load persisted state from repositories and domain services
 5. Domain services enforce session lifecycle and reminder rules
-6. Receivers handle fired alarms and notification actions in the background
+6. Receivers handle fired alarms, notification actions, and system resync events in the background
 7. Repositories read from Room or DataStore
 
 ## Packages
@@ -55,13 +55,17 @@ This layer owns storage details and should be the only layer that knows about Ro
 Contains business rules that sit above repositories but below screen state:
 
 - `session/SessionLifecycleManager.kt`: Phase 2 lifecycle rules for starting, planning, activating, completing, cancelling, and expiring sessions
-- `scheduler/`: Phase 3 reminder scheduling and alarm handling rules
+- `scheduler/`: reminder scheduling, alarm handling, daily start reminders, profile-driven reminder reconciliation, and recovery/resync rules
 
-This package is where the app now centralizes behavior that must stay consistent across screens and, later, receivers/notifications.
+This package is where the app centralizes behavior that must stay consistent across screens, receivers, and background notification flows.
 
 ### `receiver/`
 
-Contains the Android `BroadcastReceiver` entry points for reminder alarms and notification actions.
+Contains the Android `BroadcastReceiver` entry points for:
+
+- reminder alarms
+- notification actions
+- system events that require reminder resynchronization
 
 ### `feature/`
 
@@ -69,9 +73,10 @@ Contains screen-specific UI and state holders:
 
 - `onboarding/`
 - `home/`
+- `plan/`
 - `settings/`
 
-Each feature package currently keeps its screen and view-model together because the Phase 1 surface area is still small.
+Each feature package currently keeps its screen and view-model together because the app is still a single-module MVP.
 
 ## Dependency direction
 
@@ -91,13 +96,18 @@ The intended dependency direction is:
 
 This keeps feature UI dependent on repositories and models, while keeping storage and shared logic out of composables.
 
-## Phase boundaries
+## Current implementation boundaries
 
-The current implementation now includes the session lifecycle and reminder engine, but still stops before recovery and correction flows. That means:
+The current implementation includes the session lifecycle, reminder engine, and reminder recovery/resync flows. That means:
 
 - the home screen is a real session dashboard with plan/start/stop actions
 - `SessionLifecycleManager` owns the Phase 2 rules for session state transitions
-- `ReminderScheduleCoordinator` and `ReminderAlarmHandler` own the Phase 3 reminder chain
-- actual reboot/time-change recovery is still deferred to a later phase
+- `ReminderScheduleCoordinator` and `ReminderAlarmHandler` own the reminder chain
+- `DailyStartReminderCoordinator`, `ProfileReminderReconciler`, and `ReminderStateRescheduler` keep reminder state aligned with profile edits and system events
+- reboot, package replace, time-change, timezone-change, and exact-alarm-permission-change recovery are implemented through `ReminderSystemEventReceiver`
+
+Still deferred:
+
+- manual start correction / backfill flow
 
 The current code keeps reminder policy mostly outside Android framework classes, so the reminder chain can be unit-tested without instrumented tests.

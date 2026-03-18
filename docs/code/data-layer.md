@@ -1,6 +1,6 @@
 # Data Layer
 
-This document explains the persistence and repository shape after Phase 3.
+This document explains the current persistence and repository shape.
 
 ## Storage split
 
@@ -84,7 +84,9 @@ The app currently assumes a single active profile row with `id = 1`.
 Responsibilities:
 
 - observe the current non-completed session
+- fetch sessions by id for alarm handling and lifecycle recovery
 - upsert session snapshots
+- perform targeted state updates for activation, completion, cancellation, snooze, overdue promotion, reminder bookkeeping, and final-alert schedule changes
 
 The query already reflects the intended MVP rule that only one planned/active/overdue session should matter at a time.
 
@@ -103,17 +105,28 @@ Repositories provide the interface the rest of the app uses.
 - exposes the current session as `Flow<WearSession?>`
 - exposes the current session synchronously for lifecycle rules
 - exposes direct lookup by session id for alarm handling
+- exposes targeted update methods used by the lifecycle manager, alarm handler, and profile reconciler
 - saves session snapshots
 
-Phase 3 now also uses this repository from the reminder alarm handler, which needs to validate and advance a specific scheduled session.
+This repository is used by both the lifecycle manager and the reminder engine, which need idempotent updates against persisted session state.
 
 ### `AppPreferencesRepository`
 
 - exposes `Flow<AppPreferences>`
 - stores onboarding and permission-flow flags
+- currently persists:
+  - `has_completed_onboarding`
+  - `notifications_permission_requested`
+  - `exact_alarm_warning_dismissed`
 
 ## Time handling
 
 The data layer stores session timestamps in UTC-friendly types using `Instant`.
 
 User-facing time calculations should use `LensClock.zoneId()` so scheduling, session timing, and display code stay testable and timezone-aware.
+
+## Current constraints
+
+- the app currently assumes a single active lens profile row with `id = 1`
+- the app also assumes only one open session matters at a time
+- completed and cancelled sessions remain in Room as historical records, while "current session" queries only surface open states

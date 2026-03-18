@@ -66,10 +66,16 @@ Run unit tests:
 ./gradlew :app:testDebugUnitTest
 ```
 
-## What to document when Phase 2 starts
+Other useful commands:
 
-This file should be extended once the session lifecycle is implemented. The next useful additions will be:
+```bash
+./gradlew :app:lint
+./gradlew :app:assembleDebug
+```
 
-- how session state transitions are modeled
-- how feature and domain code are separated
-- how tests are organized for use cases and view-models
+## Current notes
+
+- the project is still a single-module Android app (`:app`)
+- Room schema export is committed under `app/schemas/` and should stay updated when storage changes
+- the build uses Java 17 compatibility plus core library desugaring so Java time APIs remain available on `minSdk 24`
+- if AGP/Hilt/KSP compatibility breaks during upgrades, inspect the version catalog in `gradle/libs.versions.toml` first
