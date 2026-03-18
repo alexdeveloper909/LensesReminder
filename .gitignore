@@ -2,6 +2,7 @@
 .gradle/
 .kotlin/
 /local.properties
+keystore.properties
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
@@ -23,3 +24,7 @@ local.properties
 *.aab
 *.ap_
 output-metadata.json
+
+# Signing material
+*.jks
+*.keystore
