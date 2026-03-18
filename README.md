@@ -149,6 +149,7 @@ Code-oriented documentation:
 - [docs/code/reminder-engine.md](docs/code/reminder-engine.md)
 - [docs/code/ui-and-navigation.md](docs/code/ui-and-navigation.md)
 - [docs/code/build-and-tooling.md](docs/code/build-and-tooling.md)
+- [docs/code/release-apk-ci.md](docs/code/release-apk-ci.md)
 
 ## Notes
 
