@@ -4,6 +4,10 @@ Lenses Reminder is an Android app for tracking daily contact lens wear and sendi
 
 The codebase is built with Kotlin, Jetpack Compose, Room, DataStore, Hilt, and AlarmManager-based reminder scheduling.
 
+## Download the App
+
+[Download latest APK](https://github.com/alexdeveloper909/LensesReminder/releases/latest)
+
 ## What the App Does
 
 The current app supports the core daily lens workflow:
@@ -91,8 +95,6 @@ Project Android targets:
 1. Open the project in Android Studio.
 2. Let Gradle sync.
 3. Run the `app` configuration on a device or emulator.
-
-If you only want to try the app, download the latest signed APK from the repository's Releases page.
 
 If you prefer the command line, assemble the debug APK with:
 
