@@ -92,6 +92,8 @@ Project Android targets:
 2. Let Gradle sync.
 3. Run the `app` configuration on a device or emulator.
 
+If you only want to try the app, download the latest signed APK from the repository's Releases page.
+
 If you prefer the command line, assemble the debug APK with:
 
 ```bash

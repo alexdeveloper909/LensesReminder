@@ -13,6 +13,7 @@ The workflow currently:
 - rebuilds the release keystore from GitHub Actions secrets
 - runs `./gradlew :app:assembleRelease`
 - uploads `app/build/outputs/apk/release/app-release.apk` as the `lensesreminder-release-apk` artifact
+- publishes the same APK to a rolling GitHub prerelease named `Latest Main APK`
 
 ## Prerequisites
 
@@ -119,6 +120,18 @@ The workflow will fail early if required signing secrets are missing.
 
 ## Download the signed APK
 
+### Option 1: GitHub Releases
+
+For non-technical users, this is the main download path:
+
+1. Open the repository `Releases` page
+2. Open `Latest Main APK`
+3. Download the attached `app-release.apk`
+
+This prerelease is updated from the latest successful `main` build.
+
+### Option 2: Workflow artifact
+
 After a successful workflow run:
 
 1. Open the run in the GitHub Actions tab
@@ -146,6 +159,5 @@ This workflow is intended for downloadable testing artifacts, not store publishi
 It does not currently:
 
 - publish to Google Play
-- attach binaries to GitHub Releases
 - derive version names or version codes from Git metadata
 - build `debug` artifacts as part of the release workflow
