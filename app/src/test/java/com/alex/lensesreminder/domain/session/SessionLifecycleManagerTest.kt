@@ -86,6 +86,10 @@ class SessionLifecycleManagerTest {
                     it.type == ReminderAlarmType.DAILY_START
             }
         )
+        assertEquals(
+            listOf(session.id, DAILY_START_REMINDER_SESSION_ID),
+            reminderPublisher.cancelledSessionIds
+        )
     }
 
     @Test
@@ -133,6 +137,7 @@ class SessionLifecycleManagerTest {
         val profileRepository = LensProfileRepository(FakeLensProfileDao())
         profileRepository.saveProfile(LensProfile(maxWearMinutes = 480))
         val repository = WearSessionRepository(FakeWearSessionDao())
+        val reminderPublisher = FakeReminderNotificationPublisher()
         val manager = SessionLifecycleManager(
             profileRepository,
             repository,
@@ -147,7 +152,7 @@ class SessionLifecycleManagerTest {
                 FakeReminderAlarmScheduler(),
                 clock
             ),
-            FakeReminderNotificationPublisher(),
+            reminderPublisher,
             clock
         )
         manager.savePlannedSession(clock.now().plus(Duration.ofHours(1)))
@@ -158,6 +163,8 @@ class SessionLifecycleManagerTest {
         val session = (result as SessionLifecycleResult.Success).value
         assertEquals(SessionStatus.ACTIVE, session.status)
         assertEquals(clock.now().plus(Duration.ofHours(8)), session.expectedEndAt)
+        assertTrue(reminderPublisher.cancelledSessionIds.contains(session.id))
+        assertTrue(reminderPublisher.cancelledSessionIds.contains(DAILY_START_REMINDER_SESSION_ID))
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.alex.lensesreminder.core.model.WearSession
 import com.alex.lensesreminder.core.time.LensClock
 import com.alex.lensesreminder.data.repository.LensProfileRepository
 import com.alex.lensesreminder.data.repository.WearSessionRepository
+import com.alex.lensesreminder.domain.scheduler.DAILY_START_REMINDER_SESSION_ID
 import com.alex.lensesreminder.domain.scheduler.DailyStartReminderCoordinator
 import com.alex.lensesreminder.domain.scheduler.ReminderNotificationPublisher
 import com.alex.lensesreminder.domain.scheduler.ReminderScheduleCoordinator
@@ -52,7 +53,7 @@ class SessionLifecycleManager @Inject constructor(
         val sessionId = wearSessionRepository.saveSession(session)
         val savedSession = session.copy(id = sessionId)
         reminderScheduleCoordinator.sync(savedSession)
-        reminderNotificationPublisher.cancelAll(savedSession.id)
+        clearStartReminderNotifications(savedSession.id)
         dailyStartReminderCoordinator.sync(skipToday = true)
         return SessionLifecycleResult.Success(savedSession)
     }
@@ -130,7 +131,7 @@ class SessionLifecycleManager @Inject constructor(
         }
 
         reminderScheduleCoordinator.sync(activeSession)
-        reminderNotificationPublisher.cancelAll(activeSession.id)
+        clearStartReminderNotifications(activeSession.id)
         dailyStartReminderCoordinator.sync(skipToday = true)
         return SessionLifecycleResult.Success(activeSession)
     }
@@ -249,6 +250,11 @@ class SessionLifecycleManager @Inject constructor(
     private companion object {
         val completableStatuses = setOf(SessionStatus.ACTIVE, SessionStatus.OVERDUE)
         const val SNOOZE_MINUTES = 15
+    }
+
+    private fun clearStartReminderNotifications(sessionId: Long) {
+        reminderNotificationPublisher.cancelAll(sessionId)
+        reminderNotificationPublisher.cancelAll(DAILY_START_REMINDER_SESSION_ID)
     }
 }
 
