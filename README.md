@@ -24,6 +24,22 @@ The current app supports the core daily lens workflow:
 - background notification actions for `Lenses on`, `Snooze 15 min`, and `Lenses off`
 - alarm rescheduling after boot, app replacement, time changes, timezone changes, and exact-alarm permission state changes
 
+<table>
+  <tr>
+    <td rowspan="2" align="center" valign="top">
+      <img src="docs/img/img_1.jpg" alt="Long scrolling app screenshot" width="320" />
+    </td>
+    <td align="center" valign="top">
+      <img src="docs/img/img_2.jpg" alt="App screenshot 2" width="220" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      <img src="docs/img/img_3.jpg" alt="App screenshot 3" width="220" />
+    </td>
+  </tr>
+</table>
+
 ## Current State
 
 - Compose-based onboarding, home, planning, and settings screens
