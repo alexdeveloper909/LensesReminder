@@ -12,8 +12,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,7 +38,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -522,7 +519,7 @@ private fun IdleSessionContent(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StartSessionBottomSheet(
     currentTime: Instant,
@@ -535,11 +532,11 @@ private fun StartSessionBottomSheet(
     onStartAt: (Instant) -> Unit,
 ) {
     val context = LocalContext.current
-    val localNow = remember(currentTime, zoneId) { currentTime.atZone(zoneId) }
-    var selectedDate by remember(localNow) { mutableStateOf(localNow.toLocalDate()) }
-    var selectedTime by remember(localNow) {
-        mutableStateOf(localNow.toLocalTime().withSecond(0).withNano(0))
+    val initialSelection = remember(currentTime, zoneId) {
+        currentTime.atZone(zoneId).toLocalDateTime().withSecond(0).withNano(0)
     }
+    var selectedDate by remember(initialSelection) { mutableStateOf(initialSelection.toLocalDate()) }
+    var selectedTime by remember(initialSelection) { mutableStateOf(initialSelection.toLocalTime()) }
     var showTimePicker by remember { mutableStateOf(false) }
 
     val selectedStartAt = remember(selectedDate, selectedTime, zoneId) {
@@ -586,30 +583,6 @@ private fun StartSessionBottomSheet(
                     text = stringResource(R.string.home_started_earlier_label),
                     style = MaterialTheme.typography.titleMedium,
                 )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    QuickStartOptionChip(
-                        label = stringResource(R.string.home_start_option_15_min_ago),
-                        onClick = {
-                            onStartAt(currentTime.minus(Duration.ofMinutes(15)))
-                        },
-                    )
-                    QuickStartOptionChip(
-                        label = stringResource(R.string.home_start_option_30_min_ago),
-                        onClick = {
-                            onStartAt(currentTime.minus(Duration.ofMinutes(30)))
-                        },
-                    )
-                    QuickStartOptionChip(
-                        label = stringResource(R.string.home_start_option_1_hour_ago),
-                        onClick = {
-                            onStartAt(currentTime.minus(Duration.ofHours(1)))
-                        },
-                    )
-                }
-
                 Text(
                     text = stringResource(R.string.home_custom_start_help),
                     style = MaterialTheme.typography.bodySmall,
@@ -684,18 +657,6 @@ private fun StartSessionBottomSheet(
             }
         )
     }
-}
-
-@Composable
-private fun QuickStartOptionChip(
-    label: String,
-    onClick: () -> Unit,
-) {
-    FilterChip(
-        selected = false,
-        onClick = onClick,
-        label = { Text(text = label) },
-    )
 }
 
 // ── Planned State ───────────────────────────────────────────────────────────

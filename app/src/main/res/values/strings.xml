@@ -55,9 +55,6 @@
     <string name="home_start_session_title">When did you put your lenses in?</string>
     <string name="home_start_session_body">Start now if you are putting them in right away, or backdate the session if you started earlier.</string>
     <string name="home_started_earlier_label">Started earlier</string>
-    <string name="home_start_option_15_min_ago">15 min ago</string>
-    <string name="home_start_option_30_min_ago">30 min ago</string>
-    <string name="home_start_option_1_hour_ago">1 hour ago</string>
     <string name="home_custom_start_date_value">Date: %1$s</string>
     <string name="home_custom_start_time_value">Time: %1$s</string>
     <string name="home_custom_start_help">Choose the date and time when you actually put your lenses in.</string>
