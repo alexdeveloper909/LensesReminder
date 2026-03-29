@@ -98,6 +98,8 @@
     <string name="error_final_alert_required">Final alert time is required when reminders are enabled.</string>
     <string name="label_remaining_short">remaining</string>
     <string name="label_overdue_short">overdue</string>
+    <string name="label_hours_compact">hrs</string>
+    <string name="label_minutes_compact">min</string>
     <string name="label_max_wear">Max wear</string>
     <string name="error_only_one_active_session">Only one active lens session is allowed at a time.</string>
     <string name="error_invalid_actual_start">Please choose a start time that is not in the future.</string>

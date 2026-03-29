@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -97,6 +98,7 @@ import com.alex.lensesreminder.core.notification.NotificationPermissionManager
 import com.alex.lensesreminder.core.time.format
 import com.alex.lensesreminder.core.time.formatDuration
 import com.alex.lensesreminder.feature.home.components.OverviewMetric
+import com.alex.lensesreminder.feature.home.components.CountdownRingReadout
 import com.alex.lensesreminder.feature.home.components.ProfileMetricTile
 import com.alex.lensesreminder.feature.home.components.ProgressRing
 import com.alex.lensesreminder.feature.home.components.SessionDetailRow
@@ -1198,7 +1200,31 @@ private fun ActiveSessionContent(
     dateTimeFormatter: DateTimeFormatter,
     onComplete: () -> Unit,
 ) {
+    val isDarkTheme = isSystemInDarkTheme()
     val maxWearDuration = Duration.ofMinutes(maxWearMinutes.toLong())
+    val countdownMetrics = remember(displaySession.remaining) {
+        displaySession.remaining.toCountdownRingMetrics()
+    }
+    val heroCardBrush = if (isDarkTheme) {
+        Brush.linearGradient(
+            colors = listOf(
+                MaterialTheme.colorScheme.primaryContainer,
+                lerp(
+                    MaterialTheme.colorScheme.primaryContainer,
+                    MaterialTheme.colorScheme.surface,
+                    0.18f,
+                ),
+            ),
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(
+                lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primaryContainer, 0.42f),
+                lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primaryContainer, 0.78f),
+                lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.tertiaryContainer, 0.34f),
+            ),
+        )
+    }
     val progress = if (maxWearDuration.isZero || displaySession.elapsed == null) {
         0f
     } else {
@@ -1208,85 +1234,119 @@ private fun ActiveSessionContent(
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            containerColor = Color.Transparent,
         ),
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .background(heroCardBrush),
         ) {
-            Text(
-                text = stringResource(R.string.label_lenses_in),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = stringResource(R.string.state_session_active),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                textAlign = TextAlign.Center,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            ProgressRing(
-                progress = progress,
-                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                progressColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(192.dp),
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = displaySession.remaining.formatDuration(),
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = stringResource(R.string.label_remaining_short),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            SessionDetailRow(
-                label = stringResource(R.string.label_started_at),
-                value = displaySession.actualStartAt.format(zoneId, dateTimeFormatter),
-                contentColor = contentColor,
-            )
-            SessionDetailRow(
-                label = stringResource(R.string.label_expected_removal),
-                value = displaySession.expectedEndAt.format(zoneId, dateTimeFormatter),
-                contentColor = contentColor,
-            )
-            SessionDetailRow(
-                label = stringResource(R.string.label_elapsed_time),
-                value = displaySession.elapsed.formatDuration(),
-                contentColor = contentColor,
-            )
-            displaySession.finalAlertScheduledFor?.let { finalAlert ->
-                SessionDetailRow(
-                    label = stringResource(R.string.label_final_alert_scheduled),
-                    value = finalAlert.format(zoneId, dateTimeFormatter),
-                    contentColor = contentColor,
+            if (!isDarkTheme) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 44.dp, y = (-52).dp)
+                        .size(196.dp)
+                        .clip(CircleShape)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.26f),
+                                    Color.Transparent,
+                                ),
+                            ),
+                        ),
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .offset(x = (-26).dp, y = 26.dp)
+                        .size(148.dp)
+                        .clip(CircleShape)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                                    Color.Transparent,
+                                ),
+                            ),
+                        ),
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Button(
-                onClick = onComplete,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 16.dp),
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(text = stringResource(R.string.action_lenses_off))
+                Text(
+                    text = stringResource(R.string.label_lenses_in),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = stringResource(R.string.state_session_active),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    textAlign = TextAlign.Center,
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                ProgressRing(
+                    progress = progress,
+                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    progressColor = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(208.dp),
+                    strokeWidth = 12.dp,
+                ) {
+                    CountdownRingReadout(
+                        metrics = countdownMetrics,
+                        statusLabel = stringResource(R.string.label_remaining_short),
+                        accentColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(150.dp),
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                SessionDetailRow(
+                    label = stringResource(R.string.label_started_at),
+                    value = displaySession.actualStartAt.format(zoneId, dateTimeFormatter),
+                    contentColor = contentColor,
+                )
+                SessionDetailRow(
+                    label = stringResource(R.string.label_expected_removal),
+                    value = displaySession.expectedEndAt.format(zoneId, dateTimeFormatter),
+                    contentColor = contentColor,
+                )
+                SessionDetailRow(
+                    label = stringResource(R.string.label_elapsed_time),
+                    value = displaySession.elapsed.formatDuration(),
+                    contentColor = contentColor,
+                )
+                displaySession.finalAlertScheduledFor?.let { finalAlert ->
+                    SessionDetailRow(
+                        label = stringResource(R.string.label_final_alert_scheduled),
+                        value = finalAlert.format(zoneId, dateTimeFormatter),
+                        contentColor = contentColor,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Button(
+                    onClick = onComplete,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 16.dp),
+                ) {
+                    Text(text = stringResource(R.string.action_lenses_off))
+                }
             }
         }
     }
@@ -1301,6 +1361,10 @@ private fun OverdueSessionContent(
     dateTimeFormatter: DateTimeFormatter,
     onComplete: () -> Unit,
 ) {
+    val countdownMetrics = remember(displaySession.overdueBy) {
+        displaySession.overdueBy.toCountdownRingMetrics()
+    }
+
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(
@@ -1338,21 +1402,16 @@ private fun OverdueSessionContent(
                 progress = 1f,
                 trackColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
                 progressColor = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(192.dp),
+                modifier = Modifier.size(208.dp),
+                strokeWidth = 12.dp,
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = displaySession.overdueBy.formatDuration(),
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    Text(
-                        text = stringResource(R.string.label_overdue_short),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                    )
-                }
+                CountdownRingReadout(
+                    metrics = countdownMetrics,
+                    statusLabel = stringResource(R.string.label_overdue_short),
+                    accentColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.size(150.dp),
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
