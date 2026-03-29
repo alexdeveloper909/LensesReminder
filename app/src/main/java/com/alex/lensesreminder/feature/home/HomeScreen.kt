@@ -4,10 +4,24 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +36,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -65,8 +80,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -204,6 +221,9 @@ private fun HomeScreen(
     val dateTimeFormatter = remember {
         DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
     }
+    val fullDateFormatter = remember {
+        DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL)
+    }
     val dateFormatter = remember {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
     }
@@ -213,75 +233,125 @@ private fun HomeScreen(
     val zoneId = remember { ZoneId.systemDefault() }
     val currentTime by rememberCurrentTime()
     var showStartSessionSheet by remember { mutableStateOf(false) }
+    val displaySession = remember(uiState.session, currentTime) {
+        uiState.session.toDisplayState(currentTime)
+    }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onEditSettings) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = stringResource(R.string.action_edit_settings),
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent,
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.06f),
+                        MaterialTheme.colorScheme.background,
+                    ),
                 ),
-            )
-        },
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
-        }
-    ) { innerPadding ->
-        Column(
+            ),
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            if (uiState.profile.remindersEnabled && !hasNotificationPermission) {
-                NotificationBanner(
-                    wasRequested = uiState.notificationsPermissionRequested,
-                    onRequestPermission = onRequestPermission,
+                .align(Alignment.TopEnd)
+                .padding(top = 72.dp, end = 20.dp)
+                .size(180.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                    shape = CircleShape,
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 160.dp, start = 16.dp)
+                .size(120.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.07f),
+                    shape = CircleShape,
+                ),
+        )
+
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                    },
+                    actions = {
+                        IconButton(onClick = onEditSettings) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = stringResource(R.string.action_edit_settings),
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.Transparent,
+                    ),
                 )
+            },
+            snackbarHost = {
+                SnackbarHost(hostState = snackbarHostState)
             }
-
-            if (uiState.profile.remindersEnabled && !hasExactAlarmPermission) {
-                ExactAlarmBanner(
-                    onRequestExactAlarmAccess = onRequestExactAlarmAccess,
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp)
+            ) {
+                HomeOverviewCard(
+                    displaySession = displaySession,
+                    completionSummary = uiState.completionSummary,
+                    profile = uiState.profile,
+                    currentTime = currentTime,
+                    zoneId = zoneId,
+                    fullDateFormatter = fullDateFormatter,
+                    timeFormatter = timeFormatter,
                 )
+
+                if (uiState.profile.remindersEnabled && !hasNotificationPermission) {
+                    NotificationBanner(
+                        wasRequested = uiState.notificationsPermissionRequested,
+                        onRequestPermission = onRequestPermission,
+                    )
+                }
+
+                if (uiState.profile.remindersEnabled && !hasExactAlarmPermission) {
+                    ExactAlarmBanner(
+                        onRequestExactAlarmAccess = onRequestExactAlarmAccess,
+                    )
+                }
+
+                SessionHeroCard(
+                    session = uiState.session,
+                    completionSummary = uiState.completionSummary,
+                    maxWearMinutes = uiState.profile.maxWearMinutes,
+                    currentTime = currentTime,
+                    zoneId = zoneId,
+                    dateTimeFormatter = dateTimeFormatter,
+                    onStartNow = { showStartSessionSheet = true },
+                    onPlanForLater = onPlanForLater,
+                    onActivatePlannedSession = onActivatePlannedSession,
+                    onEditPlan = onEditPlan,
+                    onCancelPlan = onCancelPlan,
+                    onCompleteSession = onCompleteSession,
+                    onDismissCompletionSummary = onDismissCompletionSummary,
+                )
+
+                ProfileSummaryCard(
+                    profile = uiState.profile,
+                    timeFormatter = timeFormatter,
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
             }
-
-            SessionHeroCard(
-                session = uiState.session,
-                completionSummary = uiState.completionSummary,
-                maxWearMinutes = uiState.profile.maxWearMinutes,
-                currentTime = currentTime,
-                zoneId = zoneId,
-                dateTimeFormatter = dateTimeFormatter,
-                onStartNow = { showStartSessionSheet = true },
-                onActivatePlannedSession = onActivatePlannedSession,
-                onEditPlan = onEditPlan,
-                onCancelPlan = onCancelPlan,
-                onCompleteSession = onCompleteSession,
-                onDismissCompletionSummary = onDismissCompletionSummary,
-            )
-
-            ProfileSummaryCard(
-                profile = uiState.profile,
-                timeFormatter = timeFormatter,
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 
@@ -306,6 +376,124 @@ private fun HomeScreen(
 }
 
 // ── Notification Banner ─────────────────────────────────────────────────────
+
+@Composable
+private fun HomeOverviewCard(
+    displaySession: DisplaySessionUiState,
+    completionSummary: HomeCompletionSummaryUiState?,
+    profile: LensProfile,
+    currentTime: Instant,
+    zoneId: ZoneId,
+    fullDateFormatter: DateTimeFormatter,
+    timeFormatter: DateTimeFormatter,
+) {
+    val overview = resolveHomeOverviewContent(
+        displaySession = displaySession,
+        completionSummary = completionSummary,
+        zoneId = zoneId,
+        timeFormatter = timeFormatter,
+    )
+    val gradientColors = when (overview.key) {
+        SessionHeroContentKey.OVERDUE -> {
+            listOf(
+                MaterialTheme.colorScheme.errorContainer,
+                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.95f),
+            )
+        }
+        SessionHeroContentKey.ACTIVE -> {
+            listOf(
+                MaterialTheme.colorScheme.primaryContainer,
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
+            )
+        }
+        SessionHeroContentKey.PLANNED -> {
+            listOf(
+                MaterialTheme.colorScheme.secondaryContainer,
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            )
+        }
+        SessionHeroContentKey.COMPLETION_SUMMARY -> {
+            listOf(
+                MaterialTheme.colorScheme.primaryContainer,
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            )
+        }
+        SessionHeroContentKey.IDLE -> {
+            listOf(
+                MaterialTheme.colorScheme.surface,
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+            )
+        }
+    }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(brush = Brush.linearGradient(gradientColors))
+                .padding(22.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                Text(
+                    text = currentTime.atZone(zoneId).format(fullDateFormatter),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = overview.contentColor.copy(alpha = 0.72f),
+                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.home_overview_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = overview.accentColor,
+                    )
+                    Text(
+                        text = overview.headline,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = overview.contentColor,
+                    )
+                    Text(
+                        text = overview.supportingText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = overview.contentColor.copy(alpha = 0.78f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OverviewMetric(
+                        modifier = Modifier.weight(1f),
+                        label = stringResource(R.string.label_max_wear),
+                        value = profile.maxWearMinutes.formatDuration(),
+                        accentColor = overview.accentColor,
+                        contentColor = overview.contentColor,
+                    )
+                    OverviewMetric(
+                        modifier = Modifier.weight(1f),
+                        label = stringResource(R.string.label_final_alert_time),
+                        value = profile.finalAlertTime.format(timeFormatter),
+                        accentColor = overview.accentColor,
+                        contentColor = overview.contentColor,
+                    )
+                    OverviewMetric(
+                        modifier = Modifier.weight(1f),
+                        label = stringResource(R.string.label_reminders_enabled),
+                        value = stringResource(
+                            if (profile.remindersEnabled) {
+                                R.string.label_reminders_on
+                            } else {
+                                R.string.label_reminders_off
+                            }
+                        ),
+                        accentColor = overview.accentColor,
+                        contentColor = overview.contentColor,
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun NotificationBanner(
@@ -416,6 +604,7 @@ private fun SessionHeroCard(
     zoneId: ZoneId,
     dateTimeFormatter: DateTimeFormatter,
     onStartNow: () -> Unit,
+    onPlanForLater: () -> Unit,
     onActivatePlannedSession: () -> Unit,
     onEditPlan: () -> Unit,
     onCancelPlan: () -> Unit,
@@ -426,43 +615,65 @@ private fun SessionHeroCard(
         session.toDisplayState(currentTime)
     }
 
-    when (displaySession.status) {
-        null, SessionStatus.COMPLETED, SessionStatus.CANCELLED -> {
-            if (completionSummary != null) {
+    val heroContent = remember(displaySession, completionSummary, maxWearMinutes) {
+        resolveSessionHeroContent(
+            displaySession = displaySession,
+            completionSummary = completionSummary,
+            maxWearMinutes = maxWearMinutes,
+        )
+    }
+
+    AnimatedContent(
+        targetState = heroContent,
+        transitionSpec = {
+            sessionHeroContentTransform(
+                initialKey = initialState.key,
+                targetKey = targetState.key,
+            )
+        },
+        contentKey = SessionHeroContentModel::key,
+        label = "session_hero_content",
+    ) { targetContent ->
+        when (targetContent) {
+            SessionHeroContentModel.Idle -> {
+                IdleSessionContent(
+                    onStartNow = onStartNow,
+                    onPlanForLater = onPlanForLater,
+                )
+            }
+            is SessionHeroContentModel.CompletionSummary -> {
                 CompletionSummaryContent(
-                    summary = completionSummary,
+                    summary = targetContent.summary,
                     onDismiss = onDismissCompletionSummary,
                 )
-            } else {
-                IdleSessionContent(onStartNow = onStartNow)
             }
-        }
-        SessionStatus.PLANNED -> {
-            PlannedSessionContent(
-                displaySession = displaySession,
-                zoneId = zoneId,
-                dateTimeFormatter = dateTimeFormatter,
-                onActivate = onActivatePlannedSession,
-                onEdit = onEditPlan,
-                onCancel = onCancelPlan,
-            )
-        }
-        SessionStatus.ACTIVE -> {
-            ActiveSessionContent(
-                displaySession = displaySession,
-                maxWearMinutes = maxWearMinutes,
-                zoneId = zoneId,
-                dateTimeFormatter = dateTimeFormatter,
-                onComplete = onCompleteSession,
-            )
-        }
-        SessionStatus.OVERDUE -> {
-            OverdueSessionContent(
-                displaySession = displaySession,
-                zoneId = zoneId,
-                dateTimeFormatter = dateTimeFormatter,
-                onComplete = onCompleteSession,
-            )
+            is SessionHeroContentModel.Planned -> {
+                PlannedSessionContent(
+                    displaySession = targetContent.displaySession,
+                    zoneId = zoneId,
+                    dateTimeFormatter = dateTimeFormatter,
+                    onActivate = onActivatePlannedSession,
+                    onEdit = onEditPlan,
+                    onCancel = onCancelPlan,
+                )
+            }
+            is SessionHeroContentModel.Active -> {
+                ActiveSessionContent(
+                    displaySession = targetContent.displaySession,
+                    maxWearMinutes = targetContent.maxWearMinutes,
+                    zoneId = zoneId,
+                    dateTimeFormatter = dateTimeFormatter,
+                    onComplete = onCompleteSession,
+                )
+            }
+            is SessionHeroContentModel.Overdue -> {
+                OverdueSessionContent(
+                    displaySession = targetContent.displaySession,
+                    zoneId = zoneId,
+                    dateTimeFormatter = dateTimeFormatter,
+                    onComplete = onCompleteSession,
+                )
+            }
         }
     }
 }
@@ -520,65 +731,83 @@ private fun CompletionSummaryContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .background(
-                        color = accentColor.copy(alpha = 0.14f),
-                        shape = CircleShape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = if (summary.removedOnTime) Icons.Default.Check else Icons.Default.Warning,
-                    contentDescription = null,
-                    modifier = Modifier.size(36.dp),
-                    tint = accentColor,
+            StaggeredVisibility(delayMillis = 0) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .background(
+                            color = accentColor.copy(alpha = 0.14f),
+                            shape = CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (summary.removedOnTime) {
+                            Icons.Default.Check
+                        } else {
+                            Icons.Default.Warning
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(36.dp),
+                        tint = accentColor,
+                    )
+                }
+            }
+
+            StaggeredVisibility(delayMillis = 70) {
+                Text(
+                    text = stringResource(R.string.label_session_complete),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = accentColor,
+                )
+            }
+            StaggeredVisibility(delayMillis = 140) {
+                Text(
+                    text = stringResource(R.string.home_completion_summary_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = contentColor,
+                    textAlign = TextAlign.Center,
                 )
             }
 
-            Text(
-                text = stringResource(R.string.label_session_complete),
-                style = MaterialTheme.typography.labelLarge,
-                color = accentColor,
-            )
-            Text(
-                text = stringResource(R.string.home_completion_summary_title),
-                style = MaterialTheme.typography.headlineSmall,
-                color = contentColor,
-                textAlign = TextAlign.Center,
-            )
+            StaggeredVisibility(delayMillis = 210) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SessionDetailRow(
+                        label = stringResource(R.string.home_completion_total_wear_label),
+                        value = summary.wearDuration.formatDuration(),
+                        contentColor = contentColor,
+                    )
+                    SessionDetailRow(
+                        label = stringResource(R.string.home_completion_status_label),
+                        value = stringResource(
+                            if (summary.removedOnTime) {
+                                R.string.home_completion_status_on_time
+                            } else {
+                                R.string.home_completion_status_overdue
+                            }
+                        ),
+                        contentColor = contentColor,
+                    )
+                }
+            }
 
-            SessionDetailRow(
-                label = stringResource(R.string.home_completion_total_wear_label),
-                value = summary.wearDuration.formatDuration(),
-                contentColor = contentColor,
-            )
-            SessionDetailRow(
-                label = stringResource(R.string.home_completion_status_label),
-                value = stringResource(
-                    if (summary.removedOnTime) {
-                        R.string.home_completion_status_on_time
-                    } else {
-                        R.string.home_completion_status_overdue
-                    }
-                ),
-                contentColor = contentColor,
-            )
+            StaggeredVisibility(delayMillis = 280) {
+                Text(
+                    text = messageText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor,
+                    textAlign = TextAlign.Center,
+                )
+            }
 
-            Text(
-                text = messageText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = contentColor,
-                textAlign = TextAlign.Center,
-            )
-
-            Button(
-                onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 16.dp),
-            ) {
-                Text(text = stringResource(R.string.action_got_it))
+            StaggeredVisibility(delayMillis = 350, modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(vertical = 16.dp),
+                ) {
+                    Text(text = stringResource(R.string.action_got_it))
+                }
             }
         }
     }
@@ -587,65 +816,96 @@ private fun CompletionSummaryContent(
 @Composable
 private fun IdleSessionContent(
     onStartNow: () -> Unit,
+    onPlanForLater: () -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.Transparent),
+    ) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = CircleShape,
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                        )
                     ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Check,
-                    contentDescription = null,
-                    modifier = Modifier.size(36.dp),
-                    tint = MaterialTheme.colorScheme.primary,
                 )
-            }
-
-            Text(
-                text = stringResource(R.string.label_lenses_out),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = stringResource(R.string.home_empty_state),
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(R.string.helper_track_daily_lenses),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = stringResource(R.string.helper_log_earlier_start),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Button(
-                onClick = onStartNow,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(vertical = 16.dp),
+                .padding(24.dp),
+        ) {
+            Column(
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(text = stringResource(R.string.action_start_now))
+                StaggeredVisibility(delayMillis = 0) {
+                    StatusBadge(
+                        text = stringResource(R.string.label_lenses_out),
+                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        contentColor = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                StaggeredVisibility(delayMillis = 70) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.home_idle_title),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = stringResource(R.string.home_idle_body),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                StaggeredVisibility(delayMillis = 150) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = stringResource(R.string.helper_track_daily_lenses),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = stringResource(R.string.helper_log_earlier_start),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                StaggeredVisibility(delayMillis = 230, modifier = Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = onStartNow,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(vertical = 16.dp),
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(text = stringResource(R.string.action_start_now))
+                        }
+                        OutlinedButton(
+                            onClick = onPlanForLater,
+                            modifier = Modifier.fillMaxWidth(),
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                            ),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                                contentColor = MaterialTheme.colorScheme.onSurface,
+                            ),
+                            contentPadding = PaddingValues(vertical = 16.dp),
+                        ) {
+                            Icon(Icons.Default.DateRange, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(text = stringResource(R.string.action_plan_for_later))
+                        }
+                    }
+                }
             }
         }
     }
@@ -1197,40 +1457,218 @@ private fun SessionDetailRow(
 // ── Profile Summary ─────────────────────────────────────────────────────────
 
 @Composable
+private fun OverviewMetric(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    accentColor: Color,
+    contentColor: Color,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(contentColor.copy(alpha = 0.08f))
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor.copy(alpha = 0.65f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = accentColor,
+        )
+    }
+}
+
+@Composable
+private fun StatusBadge(
+    text: String,
+    containerColor: Color,
+    contentColor: Color,
+) {
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(containerColor)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = contentColor,
+        )
+    }
+}
+
+@Composable
 private fun ProfileSummaryCard(
     profile: LensProfile,
     timeFormatter: DateTimeFormatter,
 ) {
-    Card(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = Color.Transparent,
         ),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
+                        ),
+                    ),
+                )
+                .padding(18.dp),
         ) {
-            Text(
-                text = stringResource(R.string.home_profile_summary_title),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                ProfileStat(
-                    value = profile.maxWearMinutes.formatDuration(),
-                    label = stringResource(R.string.label_max_wear),
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = stringResource(R.string.home_profile_summary_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(R.string.home_profile_summary_caption),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    ProfileMetricTile(
+                        modifier = Modifier.weight(1f),
+                        value = profile.maxWearMinutes.formatDuration(),
+                        label = stringResource(R.string.label_max_wear),
+                    )
+                    ProfileMetricTile(
+                        modifier = Modifier.weight(1f),
+                        value = profile.dailyStartReminderTime.format(timeFormatter),
+                        label = stringResource(R.string.label_daily_start_reminder_time),
+                    )
+                    ProfileMetricTile(
+                        modifier = Modifier.weight(1f),
+                        value = profile.finalAlertTime.format(timeFormatter),
+                        label = stringResource(R.string.label_final_alert_time),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileMetricTile(
+    modifier: Modifier = Modifier,
+    value: String,
+    label: String,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+// ── Helpers & data classes ──────────────────────────────────────────────────
+
+private data class HomeOverviewContent(
+    val key: SessionHeroContentKey,
+    val headline: String,
+    val supportingText: String,
+    val accentColor: Color,
+    val contentColor: Color,
+)
+
+@Composable
+private fun resolveHomeOverviewContent(
+    displaySession: DisplaySessionUiState,
+    completionSummary: HomeCompletionSummaryUiState?,
+    zoneId: ZoneId,
+    timeFormatter: DateTimeFormatter,
+): HomeOverviewContent {
+    return when (displaySession.status) {
+        SessionStatus.PLANNED -> HomeOverviewContent(
+            key = SessionHeroContentKey.PLANNED,
+            headline = stringResource(R.string.state_session_planned),
+            supportingText = displaySession.plannedStartAt?.let {
+                stringResource(
+                    R.string.label_planned_start
+                ) + " " + it.format(zoneId, timeFormatter)
+            } ?: stringResource(R.string.home_empty_state),
+            accentColor = MaterialTheme.colorScheme.secondary,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+        SessionStatus.ACTIVE -> HomeOverviewContent(
+            key = SessionHeroContentKey.ACTIVE,
+            headline = stringResource(R.string.state_session_active),
+            supportingText = stringResource(
+                R.string.label_remaining_time
+            ) + " " + displaySession.remaining.formatDuration(),
+            accentColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+        SessionStatus.OVERDUE -> HomeOverviewContent(
+            key = SessionHeroContentKey.OVERDUE,
+            headline = stringResource(R.string.state_session_overdue),
+            supportingText = stringResource(
+                R.string.label_overdue_by
+            ) + " " + displaySession.overdueBy.formatDuration(),
+            accentColor = MaterialTheme.colorScheme.error,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        )
+        SessionStatus.COMPLETED, SessionStatus.CANCELLED, null -> {
+            if (completionSummary != null) {
+                val supportingText = if (completionSummary.removedOnTime) {
+                    stringResource(R.string.home_completion_message_on_time)
+                } else {
+                    stringResource(
+                        R.string.home_completion_message_overdue,
+                        completionSummary.overdueBy.formatDuration(),
+                    )
+                }
+                HomeOverviewContent(
+                    key = SessionHeroContentKey.COMPLETION_SUMMARY,
+                    headline = stringResource(R.string.home_completion_summary_title),
+                    supportingText = supportingText,
+                    accentColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
-                ProfileStat(
-                    value = profile.dailyStartReminderTime.format(timeFormatter),
-                    label = stringResource(R.string.label_daily_start_reminder_time),
-                )
-                ProfileStat(
-                    value = profile.finalAlertTime.format(timeFormatter),
-                    label = stringResource(R.string.label_final_alert_time),
+            } else {
+                HomeOverviewContent(
+                    key = SessionHeroContentKey.IDLE,
+                    headline = stringResource(R.string.home_empty_state),
+                    supportingText = stringResource(R.string.helper_track_daily_lenses),
+                    accentColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                 )
             }
         }
@@ -1238,26 +1676,73 @@ private fun ProfileSummaryCard(
 }
 
 @Composable
-private fun ProfileStat(
-    value: String,
-    label: String,
+private fun StaggeredVisibility(
+    delayMillis: Int,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-        )
+    val visibleState = remember {
+        MutableTransitionState(false).apply {
+            targetState = true
+        }
+    }
+
+    AnimatedVisibility(
+        visibleState = visibleState,
+        modifier = modifier,
+        enter = fadeIn(
+            animationSpec = tween(
+                durationMillis = 320,
+                delayMillis = delayMillis,
+            ),
+        ) + slideInVertically(
+            initialOffsetY = { it / 5 },
+            animationSpec = tween(
+                durationMillis = 320,
+                delayMillis = delayMillis,
+                easing = FastOutSlowInEasing,
+            ),
+        ),
+        exit = ExitTransition.None,
+        label = "staggered_visibility",
+    ) {
+        content()
     }
 }
 
-// ── Helpers & data classes ──────────────────────────────────────────────────
+private fun sessionHeroContentTransform(
+    initialKey: SessionHeroContentKey,
+    targetKey: SessionHeroContentKey,
+): ContentTransform {
+    val settleFromLiveSession = initialKey.isLiveSession() && targetKey.isSettledState()
+    val enterTransition = fadeIn(
+        animationSpec = tween(
+            durationMillis = if (settleFromLiveSession) 320 else 220,
+            delayMillis = if (settleFromLiveSession) 90 else 40,
+        ),
+    ) + scaleIn(
+        initialScale = if (settleFromLiveSession) 0.96f else 0.99f,
+        animationSpec = tween(
+            durationMillis = if (settleFromLiveSession) 320 else 220,
+            easing = FastOutSlowInEasing,
+        ),
+    )
+    val exitTransition = fadeOut(
+        animationSpec = tween(durationMillis = if (settleFromLiveSession) 180 else 160),
+    ) + if (settleFromLiveSession) {
+        scaleOut(
+            targetScale = 0.98f,
+            animationSpec = tween(
+                durationMillis = 180,
+                easing = FastOutSlowInEasing,
+            ),
+        )
+    } else {
+        ExitTransition.None
+    }
+
+    return enterTransition.togetherWith(exitTransition)
+}
 
 private fun Instant?.format(
     zoneId: ZoneId,
@@ -1300,6 +1785,72 @@ internal data class DisplaySessionUiState(
     val remaining: Duration? = null,
     val overdueBy: Duration? = null,
 )
+
+internal enum class SessionHeroContentKey {
+    IDLE,
+    COMPLETION_SUMMARY,
+    PLANNED,
+    ACTIVE,
+    OVERDUE,
+}
+
+internal sealed interface SessionHeroContentModel {
+    val key: SessionHeroContentKey
+
+    data object Idle : SessionHeroContentModel {
+        override val key: SessionHeroContentKey = SessionHeroContentKey.IDLE
+    }
+
+    data class CompletionSummary(
+        val summary: HomeCompletionSummaryUiState,
+    ) : SessionHeroContentModel {
+        override val key: SessionHeroContentKey = SessionHeroContentKey.COMPLETION_SUMMARY
+    }
+
+    data class Planned(
+        val displaySession: DisplaySessionUiState,
+    ) : SessionHeroContentModel {
+        override val key: SessionHeroContentKey = SessionHeroContentKey.PLANNED
+    }
+
+    data class Active(
+        val displaySession: DisplaySessionUiState,
+        val maxWearMinutes: Int,
+    ) : SessionHeroContentModel {
+        override val key: SessionHeroContentKey = SessionHeroContentKey.ACTIVE
+    }
+
+    data class Overdue(
+        val displaySession: DisplaySessionUiState,
+    ) : SessionHeroContentModel {
+        override val key: SessionHeroContentKey = SessionHeroContentKey.OVERDUE
+    }
+}
+
+internal fun resolveSessionHeroContent(
+    displaySession: DisplaySessionUiState,
+    completionSummary: HomeCompletionSummaryUiState?,
+    maxWearMinutes: Int,
+): SessionHeroContentModel = when (displaySession.status) {
+    null, SessionStatus.COMPLETED, SessionStatus.CANCELLED -> {
+        completionSummary?.let { SessionHeroContentModel.CompletionSummary(it) }
+            ?: SessionHeroContentModel.Idle
+    }
+    SessionStatus.PLANNED -> SessionHeroContentModel.Planned(displaySession)
+    SessionStatus.ACTIVE -> SessionHeroContentModel.Active(
+        displaySession = displaySession,
+        maxWearMinutes = maxWearMinutes,
+    )
+    SessionStatus.OVERDUE -> SessionHeroContentModel.Overdue(displaySession)
+}
+
+private fun SessionHeroContentKey.isLiveSession(): Boolean {
+    return this == SessionHeroContentKey.ACTIVE || this == SessionHeroContentKey.OVERDUE
+}
+
+private fun SessionHeroContentKey.isSettledState(): Boolean {
+    return this == SessionHeroContentKey.IDLE || this == SessionHeroContentKey.COMPLETION_SUMMARY
+}
 
 internal fun HomeSessionUiState.toDisplayState(
     currentTime: Instant,

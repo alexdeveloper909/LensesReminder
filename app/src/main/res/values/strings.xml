@@ -54,6 +54,9 @@
     <string name="helper_repeated_reminders_stop">Repeated reminders stop only after you confirm lenses are off or the final alert is sent.</string>
     <string name="helper_notification_permission">Notification permission is needed for reminders and final alerts.</string>
     <string name="home_empty_state">No lens session for today yet.</string>
+    <string name="home_overview_title">Today at a glance</string>
+    <string name="home_idle_title">Ready for today’s session?</string>
+    <string name="home_idle_body">Start right away or plan a later session. The app will keep reminders aligned with your real wear time.</string>
     <string name="home_completion_summary_title">Today’s lens session is complete.</string>
     <string name="home_completion_total_wear_label">Total wear time</string>
     <string name="home_completion_status_label">Removal status</string>
@@ -70,6 +73,7 @@
     <string name="home_custom_start_overdue_hint">That start time means your safe wear window has already ended, so the session will start overdue.</string>
     <string name="home_custom_start_invalid_future_hint">Choose a time that is not in the future.</string>
     <string name="home_profile_summary_title">Today’s reminder profile</string>
+    <string name="home_profile_summary_caption">These settings shape today’s session timing and safety reminders.</string>
     <string name="home_profile_summary_body">Your saved settings are ready for the session and reminder phases.</string>
     <string name="home_profile_summary_body_phase_2">Your saved settings now drive session creation, timing, and overdue tracking in the app.</string>
     <string name="home_permission_warning">Notification permission is off, so reminders may not arrive.</string>
