@@ -14,6 +14,7 @@
     <string name="action_cancel">Cancel</string>
     <string name="action_edit_plan">Edit plan</string>
     <string name="action_edit_settings">Edit settings</string>
+    <string name="action_got_it">Got it</string>
     <string name="action_enable_reminders">Enable reminders</string>
     <string name="action_enable_exact_alarms">Enable exact alarms</string>
     <string name="screen_plan_session_title">Plan session</string>
@@ -29,6 +30,7 @@
     <string name="label_daily_lenses">Daily lenses</string>
     <string name="label_every_15_minutes">Every 15 minutes</string>
     <string name="label_lenses_out">Lenses out</string>
+    <string name="label_session_complete">Session complete</string>
     <string name="label_session_planned">Session planned</string>
     <string name="label_lenses_in">Lenses in</string>
     <string name="label_removal_overdue">Removal overdue</string>
@@ -52,6 +54,13 @@
     <string name="helper_repeated_reminders_stop">Repeated reminders stop only after you confirm lenses are off or the final alert is sent.</string>
     <string name="helper_notification_permission">Notification permission is needed for reminders and final alerts.</string>
     <string name="home_empty_state">No lens session for today yet.</string>
+    <string name="home_completion_summary_title">Today’s lens session is complete.</string>
+    <string name="home_completion_total_wear_label">Total wear time</string>
+    <string name="home_completion_status_label">Removal status</string>
+    <string name="home_completion_status_on_time">On time</string>
+    <string name="home_completion_status_overdue">Overdue</string>
+    <string name="home_completion_message_on_time">Great — you removed your lenses within the safe window.</string>
+    <string name="home_completion_message_overdue">Your lenses were in %1$s past the recommended time.</string>
     <string name="home_start_session_title">When did you put your lenses in?</string>
     <string name="home_start_session_body">Start now if you are putting them in right away, or backdate the session if you started earlier.</string>
     <string name="home_started_earlier_label">Started earlier</string>

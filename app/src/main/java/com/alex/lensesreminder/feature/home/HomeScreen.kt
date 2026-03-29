@@ -1,7 +1,6 @@
 package com.alex.lensesreminder.feature.home
 
 import android.Manifest
-import android.app.DatePickerDialog
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,6 +35,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DisplayMode
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -51,6 +53,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -89,6 +92,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.delay
@@ -170,6 +174,7 @@ fun HomeRoute(
         onEditPlan = onPlanSession,
         onCancelPlan = viewModel::onCancelPlannedSessionClick,
         onCompleteSession = viewModel::onCompleteSessionClick,
+        onDismissCompletionSummary = viewModel::onCompletionSummaryDismissed,
         onEditSettings = onEditSettings
     )
 }
@@ -190,6 +195,7 @@ private fun HomeScreen(
     onEditPlan: () -> Unit,
     onCancelPlan: () -> Unit,
     onCompleteSession: () -> Unit,
+    onDismissCompletionSummary: () -> Unit,
     onEditSettings: () -> Unit,
 ) {
     val timeFormatter = remember {
@@ -257,6 +263,7 @@ private fun HomeScreen(
 
             SessionHeroCard(
                 session = uiState.session,
+                completionSummary = uiState.completionSummary,
                 maxWearMinutes = uiState.profile.maxWearMinutes,
                 currentTime = currentTime,
                 zoneId = zoneId,
@@ -266,6 +273,7 @@ private fun HomeScreen(
                 onEditPlan = onEditPlan,
                 onCancelPlan = onCancelPlan,
                 onCompleteSession = onCompleteSession,
+                onDismissCompletionSummary = onDismissCompletionSummary,
             )
 
             ProfileSummaryCard(
@@ -402,6 +410,7 @@ private fun ExactAlarmBanner(
 @Composable
 private fun SessionHeroCard(
     session: HomeSessionUiState,
+    completionSummary: HomeCompletionSummaryUiState?,
     maxWearMinutes: Int,
     currentTime: Instant,
     zoneId: ZoneId,
@@ -411,6 +420,7 @@ private fun SessionHeroCard(
     onEditPlan: () -> Unit,
     onCancelPlan: () -> Unit,
     onCompleteSession: () -> Unit,
+    onDismissCompletionSummary: () -> Unit,
 ) {
     val displaySession = remember(session, currentTime) {
         session.toDisplayState(currentTime)
@@ -418,7 +428,14 @@ private fun SessionHeroCard(
 
     when (displaySession.status) {
         null, SessionStatus.COMPLETED, SessionStatus.CANCELLED -> {
-            IdleSessionContent(onStartNow = onStartNow)
+            if (completionSummary != null) {
+                CompletionSummaryContent(
+                    summary = completionSummary,
+                    onDismiss = onDismissCompletionSummary,
+                )
+            } else {
+                IdleSessionContent(onStartNow = onStartNow)
+            }
         }
         SessionStatus.PLANNED -> {
             PlannedSessionContent(
@@ -450,7 +467,122 @@ private fun SessionHeroCard(
     }
 }
 
+private const val COMPLETION_SUMMARY_AUTO_DISMISS_MILLIS = 8_000L
+
 // ── Idle State ──────────────────────────────────────────────────────────────
+
+@Composable
+private fun CompletionSummaryContent(
+    summary: HomeCompletionSummaryUiState,
+    onDismiss: () -> Unit,
+) {
+    LaunchedEffect(summary) {
+        delay(COMPLETION_SUMMARY_AUTO_DISMISS_MILLIS)
+        onDismiss()
+    }
+
+    val cardColors = if (summary.removedOnTime) {
+        CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        )
+    } else {
+        CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        )
+    }
+    val accentColor = if (summary.removedOnTime) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.tertiary
+    }
+    val contentColor = if (summary.removedOnTime) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onTertiaryContainer
+    }
+    val messageText = if (summary.removedOnTime) {
+        stringResource(R.string.home_completion_message_on_time)
+    } else {
+        stringResource(
+            R.string.home_completion_message_overdue,
+            summary.overdueBy.formatDuration()
+        )
+    }
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        colors = cardColors,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .background(
+                        color = accentColor.copy(alpha = 0.14f),
+                        shape = CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (summary.removedOnTime) Icons.Default.Check else Icons.Default.Warning,
+                    contentDescription = null,
+                    modifier = Modifier.size(36.dp),
+                    tint = accentColor,
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.label_session_complete),
+                style = MaterialTheme.typography.labelLarge,
+                color = accentColor,
+            )
+            Text(
+                text = stringResource(R.string.home_completion_summary_title),
+                style = MaterialTheme.typography.headlineSmall,
+                color = contentColor,
+                textAlign = TextAlign.Center,
+            )
+
+            SessionDetailRow(
+                label = stringResource(R.string.home_completion_total_wear_label),
+                value = summary.wearDuration.formatDuration(),
+                contentColor = contentColor,
+            )
+            SessionDetailRow(
+                label = stringResource(R.string.home_completion_status_label),
+                value = stringResource(
+                    if (summary.removedOnTime) {
+                        R.string.home_completion_status_on_time
+                    } else {
+                        R.string.home_completion_status_overdue
+                    }
+                ),
+                contentColor = contentColor,
+            )
+
+            Text(
+                text = messageText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor,
+                textAlign = TextAlign.Center,
+            )
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(vertical = 16.dp),
+            ) {
+                Text(text = stringResource(R.string.action_got_it))
+            }
+        }
+    }
+}
 
 @Composable
 private fun IdleSessionContent(
@@ -537,6 +669,7 @@ private fun StartSessionBottomSheet(
     }
     var selectedDate by remember(initialSelection) { mutableStateOf(initialSelection.toLocalDate()) }
     var selectedTime by remember(initialSelection) { mutableStateOf(initialSelection.toLocalTime()) }
+    var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
     val selectedStartAt = remember(selectedDate, selectedTime, zoneId) {
@@ -589,17 +722,7 @@ private fun StartSessionBottomSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedButton(
-                    onClick = {
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, dayOfMonth ->
-                                selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
-                            },
-                            selectedDate.year,
-                            selectedDate.monthValue - 1,
-                            selectedDate.dayOfMonth
-                        ).show()
-                    },
+                    onClick = { showDatePicker = true },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
@@ -642,6 +765,44 @@ private fun StartSessionBottomSheet(
                     Text(text = stringResource(R.string.action_start_from_selected_time))
                 }
             }
+        }
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli(),
+            initialDisplayMode = DisplayMode.Picker,
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { selectedDateMillis ->
+                            selectedDate = Instant
+                                .ofEpochMilli(selectedDateMillis)
+                                .atZone(ZoneOffset.UTC)
+                                .toLocalDate()
+                        }
+                        showDatePicker = false
+                    },
+                ) {
+                    Text(text = stringResource(android.R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDatePicker = false },
+                ) {
+                    Text(text = stringResource(android.R.string.cancel))
+                }
+            },
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 

@@ -230,4 +230,182 @@ class HomeViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun `completing an active session exposes an on time completion summary`() = runTest {
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        val preferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+        val sessionRepository = WearSessionRepository(FakeWearSessionDao())
+        val clock = FakeLensClock(Instant.parse("2026-03-14T16:30:00Z"))
+        val sessionLifecycleManager = SessionLifecycleManager(
+            profileRepository,
+            sessionRepository,
+            ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                sessionRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
+        sessionRepository.saveSession(
+            WearSession(
+                actualStartAt = Instant.parse("2026-03-14T08:00:00Z"),
+                expectedEndAt = Instant.parse("2026-03-14T18:00:00Z"),
+                finalAlertScheduledFor = Instant.parse("2026-03-14T17:00:00Z"),
+                status = SessionStatus.ACTIVE
+            )
+        )
+        val viewModel = HomeViewModel(
+            profileRepository,
+            preferencesRepository,
+            sessionRepository,
+            sessionLifecycleManager
+        )
+
+        viewModel.uiState.test {
+            assertEquals(HomeUiState(), awaitItem())
+
+            advanceUntilIdle()
+            awaitItem()
+
+            viewModel.onCompleteSessionClick()
+            advanceUntilIdle()
+
+            val updatedState = awaitItem()
+            assertEquals(
+                HomeCompletionSummaryUiState(
+                    wearDuration = Duration.ofHours(8).plusMinutes(30),
+                    removedOnTime = true,
+                    overdueBy = null
+                ),
+                updatedState.completionSummary
+            )
+            assertEquals(HomeSessionUiState(), updatedState.session)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `completing an overdue session exposes overdue duration in completion summary`() = runTest {
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        val preferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+        val sessionRepository = WearSessionRepository(FakeWearSessionDao())
+        val clock = FakeLensClock(Instant.parse("2026-03-14T17:45:00Z"))
+        val sessionLifecycleManager = SessionLifecycleManager(
+            profileRepository,
+            sessionRepository,
+            ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                sessionRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
+        sessionRepository.saveSession(
+            WearSession(
+                actualStartAt = Instant.parse("2026-03-14T08:00:00Z"),
+                expectedEndAt = Instant.parse("2026-03-14T18:00:00Z"),
+                finalAlertScheduledFor = Instant.parse("2026-03-14T17:00:00Z"),
+                status = SessionStatus.OVERDUE
+            )
+        )
+        val viewModel = HomeViewModel(
+            profileRepository,
+            preferencesRepository,
+            sessionRepository,
+            sessionLifecycleManager
+        )
+
+        viewModel.uiState.test {
+            assertEquals(HomeUiState(), awaitItem())
+
+            advanceUntilIdle()
+            awaitItem()
+
+            viewModel.onCompleteSessionClick()
+            advanceUntilIdle()
+
+            assertEquals(
+                HomeCompletionSummaryUiState(
+                    wearDuration = Duration.ofHours(9).plusMinutes(45),
+                    removedOnTime = false,
+                    overdueBy = Duration.ofMinutes(45)
+                ),
+                awaitItem().completionSummary
+            )
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `dismissing completion summary clears it from ui state`() = runTest {
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        val preferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+        val sessionRepository = WearSessionRepository(FakeWearSessionDao())
+        val clock = FakeLensClock(Instant.parse("2026-03-14T17:45:00Z"))
+        val sessionLifecycleManager = SessionLifecycleManager(
+            profileRepository,
+            sessionRepository,
+            ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                sessionRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
+        sessionRepository.saveSession(
+            WearSession(
+                actualStartAt = Instant.parse("2026-03-14T08:00:00Z"),
+                expectedEndAt = Instant.parse("2026-03-14T18:00:00Z"),
+                status = SessionStatus.ACTIVE
+            )
+        )
+        val viewModel = HomeViewModel(
+            profileRepository,
+            preferencesRepository,
+            sessionRepository,
+            sessionLifecycleManager
+        )
+
+        viewModel.uiState.test {
+            assertEquals(HomeUiState(), awaitItem())
+
+            advanceUntilIdle()
+            awaitItem()
+
+            viewModel.onCompleteSessionClick()
+            advanceUntilIdle()
+            awaitItem()
+
+            viewModel.onCompletionSummaryDismissed()
+            advanceUntilIdle()
+
+            assertEquals(null, awaitItem().completionSummary)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }

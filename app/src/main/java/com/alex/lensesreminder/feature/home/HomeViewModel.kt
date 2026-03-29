@@ -12,10 +12,12 @@ import com.alex.lensesreminder.domain.session.SessionLifecycleFailure
 import com.alex.lensesreminder.domain.session.SessionLifecycleManager
 import com.alex.lensesreminder.domain.session.SessionLifecycleResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -33,6 +35,7 @@ class HomeViewModel @Inject constructor(
     private val sessionLifecycleManager: SessionLifecycleManager,
 ) : ViewModel() {
     private val mutableEvents = MutableSharedFlow<HomeEvent>()
+    private val completionSummary = MutableStateFlow<HomeCompletionSummaryUiState?>(null)
 
     val events = mutableEvents.asSharedFlow()
 
@@ -40,11 +43,13 @@ class HomeViewModel @Inject constructor(
         lensProfileRepository.profile,
         appPreferencesRepository.preferences,
         wearSessionRepository.currentSession,
-    ) { profile, preferences, session ->
+        completionSummary,
+    ) { profile, preferences, session, summary ->
         HomeUiState(
             profile = profile,
             notificationsPermissionRequested = preferences.notificationsPermissionRequested,
-            session = session.toUiState()
+            session = session.toUiState(),
+            completionSummary = if (session == null) summary else null,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -62,6 +67,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = sessionLifecycleManager.startNow()) {
                 is SessionLifecycleResult.Success -> {
+                    clearCompletionSummary()
                     emitStartSuccess(result.value)
                 }
                 is SessionLifecycleResult.Failure -> {
@@ -77,6 +83,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = sessionLifecycleManager.startAt(actualStartAt)) {
                 is SessionLifecycleResult.Success -> {
+                    clearCompletionSummary()
                     emitStartSuccess(result.value)
                 }
                 is SessionLifecycleResult.Failure -> {
@@ -90,6 +97,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = sessionLifecycleManager.activatePlannedSession()) {
                 is SessionLifecycleResult.Success -> {
+                    clearCompletionSummary()
                     mutableEvents.emit(HomeEvent.Message(com.alex.lensesreminder.R.string.state_session_active))
                 }
                 is SessionLifecycleResult.Failure -> emitFailure(result.reason)
@@ -101,6 +109,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = sessionLifecycleManager.completeCurrentSession()) {
                 is SessionLifecycleResult.Success -> {
+                    completionSummary.value = result.value.toCompletionSummaryUiState()
                     mutableEvents.emit(
                         HomeEvent.Message(com.alex.lensesreminder.R.string.state_lenses_marked_off)
                     )
@@ -114,6 +123,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = sessionLifecycleManager.cancelPlannedSession()) {
                 is SessionLifecycleResult.Success -> {
+                    clearCompletionSummary()
                     mutableEvents.emit(
                         HomeEvent.Message(com.alex.lensesreminder.R.string.state_plan_cancelled)
                     )
@@ -121,6 +131,10 @@ class HomeViewModel @Inject constructor(
                 is SessionLifecycleResult.Failure -> emitFailure(result.reason)
             }
         }
+    }
+
+    fun onCompletionSummaryDismissed() {
+        clearCompletionSummary()
     }
 
     private suspend fun emitFailure(
@@ -153,6 +167,10 @@ class HomeViewModel @Inject constructor(
         }
         mutableEvents.emit(HomeEvent.Message(messageId))
     }
+
+    private fun clearCompletionSummary() {
+        completionSummary.value = null
+    }
 }
 
 /**
@@ -162,6 +180,7 @@ data class HomeUiState(
     val profile: LensProfile = LensProfile(),
     val notificationsPermissionRequested: Boolean = false,
     val session: HomeSessionUiState = HomeSessionUiState(),
+    val completionSummary: HomeCompletionSummaryUiState? = null,
 )
 
 data class HomeSessionUiState(
@@ -170,6 +189,12 @@ data class HomeSessionUiState(
     val actualStartAt: Instant? = null,
     val expectedEndAt: Instant? = null,
     val finalAlertScheduledFor: Instant? = null,
+)
+
+data class HomeCompletionSummaryUiState(
+    val wearDuration: Duration,
+    val removedOnTime: Boolean,
+    val overdueBy: Duration? = null,
 )
 
 sealed interface HomeEvent {
@@ -189,5 +214,25 @@ private fun WearSession?.toUiState(): HomeSessionUiState {
         actualStartAt = actualStartAt,
         expectedEndAt = expectedEndAt,
         finalAlertScheduledFor = finalAlertScheduledFor,
+    )
+}
+
+private fun WearSession.toCompletionSummaryUiState(): HomeCompletionSummaryUiState? {
+    val startedAt = actualStartAt ?: return null
+    val completedAt = completedAt ?: return null
+    val effectiveDeadlineAt = expectedEndAt?.let { expectedEnd ->
+        finalAlertScheduledFor?.let { finalAlert ->
+            minOf(expectedEnd, finalAlert)
+        } ?: expectedEnd
+    } ?: finalAlertScheduledFor
+    val wearDuration = Duration.between(startedAt, completedAt).coerceAtLeast(Duration.ZERO)
+    val overdueBy = effectiveDeadlineAt?.let { deadline ->
+        Duration.between(deadline, completedAt).coerceAtLeast(Duration.ZERO)
+    }?.takeUnless(Duration::isZero)
+
+    return HomeCompletionSummaryUiState(
+        wearDuration = wearDuration,
+        removedOnTime = overdueBy == null,
+        overdueBy = overdueBy,
     )
 }

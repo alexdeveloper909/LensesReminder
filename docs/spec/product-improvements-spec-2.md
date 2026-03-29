@@ -24,7 +24,7 @@ Every item here comes from reading the actual source code, examining screenshots
 
 **Fix:** After the user taps "Lenses off", show a `Snackbar` with an **"Undo"** action that persists for 5 seconds. If the user does not tap undo, the completion is finalized. If they tap undo, the session is restored to its previous state (active or overdue). This pattern is standard in Material Design for destructive actions.
 
-### 1.3. Session Completion Feels Anticlimactic
+### DONE 1.3. Session Completion Feels Anticlimactic
 
 **Problem:** After completing a session, the user is shown the idle state with the generic "No lens session for today yet" message. There is no summary of how long they wore their lenses, whether they removed them on time, or any positive reinforcement.
 
@@ -36,7 +36,7 @@ Every item here comes from reading the actual source code, examining screenshots
 
 The card should have a "Got it" or auto-dismiss behavior that returns to the standard idle state.
 
-### 1.4. DatePickerDialog Uses Android Views Inside a Compose App
+### DONE 1.4. DatePickerDialog Uses Android Views Inside a Compose App
 
 **Problem:** The `StartSessionBottomSheet` uses `android.app.DatePickerDialog` (a View-based dialog) inside a fully Compose-based UI. This creates visual inconsistency — the time picker is a Material 3 Compose dialog, but the date picker looks like an older Android dialog.
 
