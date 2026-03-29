@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -59,6 +60,9 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.alex.lensesreminder.R
 import com.alex.lensesreminder.core.notification.ExactAlarmPermissionManager
 import com.alex.lensesreminder.ui.component.MaterialTimePickerDialog
+import com.alex.lensesreminder.ui.theme.LensesReminderPreviewSurface
+import com.alex.lensesreminder.ui.theme.LensesReminderPreviews
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.flow.collectLatest
@@ -498,6 +502,62 @@ private fun LabeledValue(
         Text(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
+        )
+    }
+}
+
+@LensesReminderPreviews
+@Composable
+private fun SettingsEditorScreenPreview() {
+    LensesReminderPreviewSurface {
+        SettingsEditorScreen(
+            title = stringResource(R.string.screen_settings_title),
+            actionLabel = stringResource(R.string.action_done),
+            showBackAction = true,
+            onBack = {},
+            uiState = SettingsUiState(
+                isLoading = false,
+                maxWearHoursInput = "12",
+                maxWearMinutesInput = "0",
+                remindersEnabled = true,
+                finalAlertTime = LocalTime.of(22, 0),
+                dailyStartReminderTime = LocalTime.of(8, 0),
+            ),
+            snackbarHostState = remember { SnackbarHostState() },
+            onMaxWearHoursChanged = {},
+            onMaxWearMinutesChanged = {},
+            onRemindersEnabledChanged = {},
+            onFinalAlertTimeChanged = {},
+            onDailyStartReminderTimeChanged = {},
+            onSaveClick = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 412)
+@Composable
+private fun OnboardingEditorScreenPreview() {
+    LensesReminderPreviewSurface {
+        SettingsEditorScreen(
+            title = stringResource(R.string.screen_setup_title),
+            actionLabel = stringResource(R.string.action_save_and_continue),
+            showBackAction = false,
+            onBack = {},
+            uiState = SettingsUiState(
+                isLoading = false,
+                maxWearHoursInput = "14",
+                maxWearMinutesInput = "30",
+                remindersEnabled = false,
+                finalAlertTime = LocalTime.of(21, 30),
+                dailyStartReminderTime = LocalTime.of(7, 45),
+            ),
+            snackbarHostState = remember { SnackbarHostState() },
+            onMaxWearHoursChanged = {},
+            onMaxWearMinutesChanged = {},
+            onRemindersEnabledChanged = {},
+            onFinalAlertTimeChanged = {},
+            onDailyStartReminderTimeChanged = {},
+            onSaveClick = {},
         )
     }
 }

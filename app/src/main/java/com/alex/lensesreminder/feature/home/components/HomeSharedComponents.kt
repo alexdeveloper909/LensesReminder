@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,11 +41,14 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.alex.lensesreminder.R
 import com.alex.lensesreminder.feature.home.CountdownRingMetric
 import com.alex.lensesreminder.feature.home.CountdownRingUnit
+import com.alex.lensesreminder.ui.theme.LensesReminderPreviewSurface
+import com.alex.lensesreminder.ui.theme.LensesReminderPreviews
 
 @Composable
 internal fun ProgressRing(
@@ -194,7 +198,7 @@ private fun CountdownMetricBlock(
     unitLabelColor: Color,
 ) {
     Column(
-        modifier = Modifier.widthIn(min = 54.dp),
+        modifier = Modifier.widthIn(min = 35.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
@@ -331,5 +335,75 @@ internal fun StaggeredVisibility(
         label = "staggered_visibility",
     ) {
         content()
+    }
+}
+
+@LensesReminderPreviews
+@Composable
+private fun ProgressRingPreview() {
+    LensesReminderPreviewSurface {
+        ProgressRing(
+            progress = 0.72f,
+            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+            progressColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(220.dp),
+            strokeWidth = 12.dp,
+        ) {
+            Text(
+                text = "72%",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@LensesReminderPreviews
+@Composable
+private fun CountdownRingReadoutPreview() {
+    LensesReminderPreviewSurface {
+        CountdownRingReadout(
+            metrics = listOf(
+                CountdownRingMetric(value = 5, unit = CountdownRingUnit.HOURS),
+                CountdownRingMetric(value = 45, unit = CountdownRingUnit.MINUTES),
+            ),
+            statusLabel = "Remaining",
+            accentColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.size(180.dp),
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 412)
+@Composable
+private fun HomeMetricsPreview() {
+    LensesReminderPreviewSurface {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            SessionDetailRow(
+                label = "Started at",
+                value = "Mar 29, 8:15 AM",
+            )
+            StatusBadge(
+                text = "Lenses in",
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.primary,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OverviewMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Max wear",
+                    value = "12h",
+                    accentColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                )
+                ProfileMetricTile(
+                    modifier = Modifier.weight(1f),
+                    value = "8:00 AM",
+                    label = "Daily reminder",
+                )
+            }
+        }
     }
 }

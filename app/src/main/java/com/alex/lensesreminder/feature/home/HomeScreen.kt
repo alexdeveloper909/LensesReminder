@@ -84,6 +84,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -105,6 +106,8 @@ import com.alex.lensesreminder.feature.home.components.SessionDetailRow
 import com.alex.lensesreminder.feature.home.components.StaggeredVisibility
 import com.alex.lensesreminder.feature.home.components.StatusBadge
 import com.alex.lensesreminder.ui.component.MaterialTimePickerDialog
+import com.alex.lensesreminder.ui.theme.LensesReminderPreviewSurface
+import com.alex.lensesreminder.ui.theme.LensesReminderPreviews
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -1601,4 +1604,78 @@ private fun rememberCurrentTime(): State<Instant> = produceState(initialValue = 
         value = Instant.now()
         delay(1_000)
     }
+}
+
+@LensesReminderPreviews
+@Composable
+private fun HomeScreenActivePreview() {
+    val now = remember { Instant.now() }
+    LensesReminderPreviewSurface {
+        HomeScreen(
+            uiState = previewHomeUiState(
+                now = now,
+                session = HomeSessionUiState(
+                    status = SessionStatus.ACTIVE,
+                    actualStartAt = now.minus(Duration.ofHours(3)).minus(Duration.ofMinutes(20)),
+                    expectedEndAt = now.plus(Duration.ofHours(8)).plus(Duration.ofMinutes(40)),
+                    finalAlertScheduledFor = now.plus(Duration.ofHours(10)),
+                ),
+            ),
+            hasNotificationPermission = true,
+            hasExactAlarmPermission = true,
+            snackbarHostState = remember { SnackbarHostState() },
+            onRequestPermission = {},
+            onRequestExactAlarmAccess = {},
+            onStartNow = {},
+            onStartAt = {},
+            onPlanForLater = {},
+            onActivatePlannedSession = {},
+            onEditPlan = {},
+            onCancelPlan = {},
+            onCompleteSession = {},
+            onDismissCompletionSummary = {},
+            onEditSettings = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 412)
+@Composable
+private fun HomeScreenIdlePreview() {
+    val now = remember { Instant.now() }
+    LensesReminderPreviewSurface {
+        HomeScreen(
+            uiState = previewHomeUiState(now = now),
+            hasNotificationPermission = false,
+            hasExactAlarmPermission = false,
+            snackbarHostState = remember { SnackbarHostState() },
+            onRequestPermission = {},
+            onRequestExactAlarmAccess = {},
+            onStartNow = {},
+            onStartAt = {},
+            onPlanForLater = {},
+            onActivatePlannedSession = {},
+            onEditPlan = {},
+            onCancelPlan = {},
+            onCompleteSession = {},
+            onDismissCompletionSummary = {},
+            onEditSettings = {},
+        )
+    }
+}
+
+private fun previewHomeUiState(
+    now: Instant,
+    session: HomeSessionUiState = HomeSessionUiState(),
+): HomeUiState {
+    return HomeUiState(
+        profile = LensProfile(
+            maxWearMinutes = 12 * 60,
+            remindersEnabled = true,
+            finalAlertTime = LocalTime.of(22, 0),
+            dailyStartReminderTime = LocalTime.of(8, 0),
+        ),
+        notificationsPermissionRequested = now.epochSecond % 2L == 0L,
+        session = session,
+    )
 }
