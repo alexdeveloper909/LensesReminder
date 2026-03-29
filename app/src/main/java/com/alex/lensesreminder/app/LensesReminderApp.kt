@@ -50,9 +50,9 @@ fun LensesReminderApp(
     }
 
     val startDestination = if (uiState.hasCompletedOnboarding) {
-        AppDestination.Home.route
+        AppDestination.Home
     } else {
-        AppDestination.Setup.route
+        AppDestination.Setup
     }
 
     val navController = rememberNavController()

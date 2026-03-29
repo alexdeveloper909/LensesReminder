@@ -15,41 +15,41 @@ import com.alex.lensesreminder.feature.settings.SettingsRoute
 @Composable
 fun LensesReminderNavHost(
     navController: NavHostController,
-    startDestination: String,
+    startDestination: AppDestination,
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        composable(route = AppDestination.Setup.route) {
+        composable<AppDestination.Setup> {
             OnboardingRoute(
                 onSaved = {
-                    navController.navigate(AppDestination.Home.route) {
-                        popUpTo(AppDestination.Setup.route) {
+                    navController.navigate(AppDestination.Home) {
+                        popUpTo<AppDestination.Setup> {
                             inclusive = true
                         }
                     }
                 }
             )
         }
-        composable(route = AppDestination.Home.route) {
+        composable<AppDestination.Home> {
             HomeRoute(
                 onPlanSession = {
-                    navController.navigate(AppDestination.PlanSession.route)
+                    navController.navigate(AppDestination.PlanSession)
                 },
                 onEditSettings = {
-                    navController.navigate(AppDestination.Settings.route)
+                    navController.navigate(AppDestination.Settings)
                 }
             )
         }
-        composable(route = AppDestination.PlanSession.route) {
+        composable<AppDestination.PlanSession> {
             PlanSessionRoute(
                 onDone = {
                     navController.popBackStack()
                 }
             )
         }
-        composable(route = AppDestination.Settings.route) {
+        composable<AppDestination.Settings> {
             SettingsRoute(
                 onDone = {
                     navController.popBackStack()

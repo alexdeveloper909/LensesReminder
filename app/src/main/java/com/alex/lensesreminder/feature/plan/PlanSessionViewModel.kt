@@ -16,12 +16,12 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -36,11 +36,11 @@ class PlanSessionViewModel @Inject constructor(
     private val clock: LensClock,
 ) : ViewModel() {
     private val mutableUiState = MutableStateFlow(PlanSessionUiState())
-    private val mutableEvents = MutableSharedFlow<PlanSessionEvent>()
+    private val mutableEvents = Channel<PlanSessionEvent>(Channel.BUFFERED)
     private var hasLoadedDraft = false
 
     val uiState = mutableUiState.asStateFlow()
-    val events = mutableEvents.asSharedFlow()
+    val events = mutableEvents.receiveAsFlow()
 
     init {
         viewModelScope.launch {
@@ -99,10 +99,10 @@ class PlanSessionViewModel @Inject constructor(
 
             when (val result = sessionLifecycleManager.savePlannedSession(plannedStartAt)) {
                 is SessionLifecycleResult.Success -> {
-                    mutableEvents.emit(PlanSessionEvent.PlanSaved)
+                    mutableEvents.send(PlanSessionEvent.PlanSaved)
                 }
                 is SessionLifecycleResult.Failure -> {
-                    mutableEvents.emit(
+                    mutableEvents.send(
                         PlanSessionEvent.ValidationError(
                             messageId = result.reason.toMessageId()
                         )
@@ -128,6 +128,7 @@ class PlanSessionViewModel @Inject constructor(
 
 data class PlanSessionUiState(
     val isLoading: Boolean = true,
+    // Placeholder until init loads the real date before the editor content is shown.
     val selectedDate: LocalDate = LocalDate.now(),
     val selectedTime: LocalTime = LocalTime.of(9, 0),
     val remindersEnabled: Boolean = true,

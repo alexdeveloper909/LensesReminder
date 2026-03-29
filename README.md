@@ -43,6 +43,7 @@ The current app supports the core daily lens workflow:
 ## Current State
 
 - Compose-based onboarding, home, planning, and settings screens
+- type-safe Navigation Compose destinations backed by `@Serializable` route objects
 - persistent lens profile storage
 - Room-backed wear session storage with exported schemas
 - DataStore-backed app preferences

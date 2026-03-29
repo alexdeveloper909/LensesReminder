@@ -3,7 +3,9 @@ package com.alex.lensesreminder.feature.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.annotation.StringRes
+import com.alex.lensesreminder.R
 import com.alex.lensesreminder.core.model.LensProfile
+import com.alex.lensesreminder.core.model.SessionStatus
 import com.alex.lensesreminder.core.model.WearSession
 import com.alex.lensesreminder.data.repository.AppPreferencesRepository
 import com.alex.lensesreminder.data.repository.LensProfileRepository
@@ -15,12 +17,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Duration
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -34,10 +36,10 @@ class HomeViewModel @Inject constructor(
     wearSessionRepository: WearSessionRepository,
     private val sessionLifecycleManager: SessionLifecycleManager,
 ) : ViewModel() {
-    private val mutableEvents = MutableSharedFlow<HomeEvent>()
+    private val mutableEvents = Channel<HomeEvent>(Channel.BUFFERED)
     private val completionSummary = MutableStateFlow<HomeCompletionSummaryUiState?>(null)
 
-    val events = mutableEvents.asSharedFlow()
+    val events = mutableEvents.receiveAsFlow()
 
     val uiState: StateFlow<HomeUiState> = combine(
         lensProfileRepository.profile,
@@ -98,7 +100,7 @@ class HomeViewModel @Inject constructor(
             when (val result = sessionLifecycleManager.activatePlannedSession()) {
                 is SessionLifecycleResult.Success -> {
                     clearCompletionSummary()
-                    mutableEvents.emit(HomeEvent.Message(com.alex.lensesreminder.R.string.state_session_active))
+                    mutableEvents.send(HomeEvent.Message(R.string.state_session_active))
                 }
                 is SessionLifecycleResult.Failure -> emitFailure(result.reason)
             }
@@ -110,8 +112,8 @@ class HomeViewModel @Inject constructor(
             when (val result = sessionLifecycleManager.completeCurrentSession()) {
                 is SessionLifecycleResult.Success -> {
                     completionSummary.value = result.value.toCompletionSummaryUiState()
-                    mutableEvents.emit(
-                        HomeEvent.Message(com.alex.lensesreminder.R.string.state_lenses_marked_off)
+                    mutableEvents.send(
+                        HomeEvent.Message(R.string.state_lenses_marked_off)
                     )
                 }
                 is SessionLifecycleResult.Failure -> emitFailure(result.reason)
@@ -124,8 +126,8 @@ class HomeViewModel @Inject constructor(
             when (val result = sessionLifecycleManager.cancelPlannedSession()) {
                 is SessionLifecycleResult.Success -> {
                     clearCompletionSummary()
-                    mutableEvents.emit(
-                        HomeEvent.Message(com.alex.lensesreminder.R.string.state_plan_cancelled)
+                    mutableEvents.send(
+                        HomeEvent.Message(R.string.state_plan_cancelled)
                     )
                 }
                 is SessionLifecycleResult.Failure -> emitFailure(result.reason)
@@ -142,30 +144,30 @@ class HomeViewModel @Inject constructor(
     ) {
         val messageId = when (reason) {
             SessionLifecycleFailure.EXISTING_OPEN_SESSION -> {
-                com.alex.lensesreminder.R.string.error_only_one_active_session
+                R.string.error_only_one_active_session
             }
             SessionLifecycleFailure.INVALID_ACTUAL_START -> {
-                com.alex.lensesreminder.R.string.error_invalid_actual_start
+                R.string.error_invalid_actual_start
             }
             SessionLifecycleFailure.INVALID_PLANNED_TIME -> {
-                com.alex.lensesreminder.R.string.error_invalid_planned_start
+                R.string.error_invalid_planned_start
             }
             SessionLifecycleFailure.PLANNED_SESSION_NOT_FOUND,
             SessionLifecycleFailure.ACTIVE_SESSION_NOT_FOUND,
-            -> com.alex.lensesreminder.R.string.error_session_action_unavailable
+            -> R.string.error_session_action_unavailable
         }
-        mutableEvents.emit(HomeEvent.Message(messageId))
+        mutableEvents.send(HomeEvent.Message(messageId))
     }
 
     private suspend fun emitStartSuccess(
         session: WearSession,
     ) {
-        val messageId = if (session.status == com.alex.lensesreminder.core.model.SessionStatus.OVERDUE) {
-            com.alex.lensesreminder.R.string.state_session_overdue
+        val messageId = if (session.status == SessionStatus.OVERDUE) {
+            R.string.state_session_overdue
         } else {
-            com.alex.lensesreminder.R.string.state_session_active
+            R.string.state_session_active
         }
-        mutableEvents.emit(HomeEvent.Message(messageId))
+        mutableEvents.send(HomeEvent.Message(messageId))
     }
 
     private fun clearCompletionSummary() {
@@ -184,7 +186,7 @@ data class HomeUiState(
 )
 
 data class HomeSessionUiState(
-    val status: com.alex.lensesreminder.core.model.SessionStatus? = null,
+    val status: SessionStatus? = null,
     val plannedStartAt: Instant? = null,
     val actualStartAt: Instant? = null,
     val expectedEndAt: Instant? = null,

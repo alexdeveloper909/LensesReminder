@@ -232,6 +232,49 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `start event is buffered until collector attaches`() = runTest {
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        profileRepository.saveProfile(LensProfile(maxWearMinutes = 600))
+        val preferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+        val sessionRepository = WearSessionRepository(FakeWearSessionDao())
+        val clock = FakeLensClock(Instant.parse("2026-03-14T15:00:00Z"))
+        val sessionLifecycleManager = SessionLifecycleManager(
+            profileRepository,
+            sessionRepository,
+            ReminderScheduleCoordinator(
+                profileRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            DailyStartReminderCoordinator(
+                profileRepository,
+                sessionRepository,
+                FakeReminderAlarmScheduler(),
+                clock
+            ),
+            FakeReminderNotificationPublisher(),
+            clock
+        )
+        val viewModel = HomeViewModel(
+            profileRepository,
+            preferencesRepository,
+            sessionRepository,
+            sessionLifecycleManager
+        )
+
+        viewModel.onStartAtClick(Instant.parse("2026-03-14T13:00:00Z"))
+        advanceUntilIdle()
+
+        viewModel.events.test {
+            assertEquals(
+                HomeEvent.Message(com.alex.lensesreminder.R.string.state_session_active),
+                awaitItem()
+            )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `completing an active session exposes an on time completion summary`() = runTest {
         val profileRepository = LensProfileRepository(FakeLensProfileDao())
         val preferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())

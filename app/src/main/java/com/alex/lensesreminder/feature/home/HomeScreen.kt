@@ -5,21 +5,16 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.MutableTransitionState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -81,18 +76,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -104,6 +94,14 @@ import com.alex.lensesreminder.core.model.LensProfile
 import com.alex.lensesreminder.core.model.SessionStatus
 import com.alex.lensesreminder.core.notification.ExactAlarmPermissionManager
 import com.alex.lensesreminder.core.notification.NotificationPermissionManager
+import com.alex.lensesreminder.core.time.format
+import com.alex.lensesreminder.core.time.formatDuration
+import com.alex.lensesreminder.feature.home.components.OverviewMetric
+import com.alex.lensesreminder.feature.home.components.ProfileMetricTile
+import com.alex.lensesreminder.feature.home.components.ProgressRing
+import com.alex.lensesreminder.feature.home.components.SessionDetailRow
+import com.alex.lensesreminder.feature.home.components.StaggeredVisibility
+import com.alex.lensesreminder.feature.home.components.StatusBadge
 import com.alex.lensesreminder.ui.component.MaterialTimePickerDialog
 import java.time.Duration
 import java.time.Instant
@@ -229,9 +227,6 @@ private fun HomeScreen(
     val dateFormatter = remember {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
     }
-    val localTimeFormatter = remember {
-        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
-    }
     val zoneId = remember { ZoneId.systemDefault() }
     val currentTime by rememberCurrentTime()
     var showStartSessionSheet by remember { mutableStateOf(false) }
@@ -350,10 +345,9 @@ private fun HomeScreen(
                 }
 
                 SessionHeroCard(
-                    session = uiState.session,
+                    displaySession = displaySession,
                     completionSummary = uiState.completionSummary,
                     maxWearMinutes = uiState.profile.maxWearMinutes,
-                    currentTime = currentTime,
                     zoneId = zoneId,
                     dateTimeFormatter = dateTimeFormatter,
                     onStartNow = { showStartSessionSheet = true },
@@ -381,7 +375,7 @@ private fun HomeScreen(
             maxWearMinutes = uiState.profile.maxWearMinutes,
             zoneId = zoneId,
             dateFormatter = dateFormatter,
-            timeFormatter = localTimeFormatter,
+            timeFormatter = timeFormatter,
             onDismiss = { showStartSessionSheet = false },
             onStartNow = {
                 showStartSessionSheet = false
@@ -413,6 +407,12 @@ private fun HomeOverviewCard(
         zoneId = zoneId,
         timeFormatter = timeFormatter,
     )
+    val currentDate = remember(currentTime, zoneId) {
+        currentTime.atZone(zoneId).toLocalDate()
+    }
+    val formattedDate = remember(currentDate, fullDateFormatter) {
+        currentDate.format(fullDateFormatter)
+    }
     val gradientColors = when (overview.key) {
         SessionHeroContentKey.OVERDUE -> {
             listOf(
@@ -458,7 +458,7 @@ private fun HomeOverviewCard(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 Text(
-                    text = currentTime.atZone(zoneId).format(fullDateFormatter),
+                    text = formattedDate,
                     style = MaterialTheme.typography.labelLarge,
                     color = overview.contentColor.copy(alpha = 0.72f),
                 )
@@ -617,10 +617,9 @@ private fun ExactAlarmBanner(
 
 @Composable
 private fun SessionHeroCard(
-    session: HomeSessionUiState,
+    displaySession: DisplaySessionUiState,
     completionSummary: HomeCompletionSummaryUiState?,
     maxWearMinutes: Int,
-    currentTime: Instant,
     zoneId: ZoneId,
     dateTimeFormatter: DateTimeFormatter,
     onStartNow: () -> Unit,
@@ -631,10 +630,6 @@ private fun SessionHeroCard(
     onCompleteSession: () -> Unit,
     onDismissCompletionSummary: () -> Unit,
 ) {
-    val displaySession = remember(session, currentTime) {
-        session.toDisplayState(currentTime)
-    }
-
     val heroContent = remember(displaySession, completionSummary, maxWearMinutes) {
         resolveSessionHeroContent(
             displaySession = displaySession,
@@ -1398,137 +1393,6 @@ private fun OverdueSessionContent(
     }
 }
 
-// ── Progress Ring ───────────────────────────────────────────────────────────
-
-@Composable
-private fun ProgressRing(
-    progress: Float,
-    trackColor: Color,
-    progressColor: Color,
-    modifier: Modifier = Modifier,
-    strokeWidth: Dp = 10.dp,
-    content: @Composable () -> Unit = {},
-) {
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = 900),
-        label = "ring_progress",
-    )
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(modifier = Modifier.matchParentSize()) {
-            val stroke = strokeWidth.toPx()
-            val diameter = minOf(size.width, size.height) - stroke
-            val topLeft = Offset(
-                (size.width - diameter) / 2f,
-                (size.height - diameter) / 2f,
-            )
-            val arcSize = Size(diameter, diameter)
-
-            drawArc(
-                color = trackColor,
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                topLeft = topLeft,
-                size = arcSize,
-                style = Stroke(width = stroke, cap = StrokeCap.Round),
-            )
-            drawArc(
-                color = progressColor,
-                startAngle = -90f,
-                sweepAngle = animatedProgress * 360f,
-                useCenter = false,
-                topLeft = topLeft,
-                size = arcSize,
-                style = Stroke(width = stroke, cap = StrokeCap.Round),
-            )
-        }
-        content()
-    }
-}
-
-// ── Shared Detail Row ───────────────────────────────────────────────────────
-
-@Composable
-private fun SessionDetailRow(
-    label: String,
-    value: String,
-    contentColor: Color = MaterialTheme.colorScheme.onSurface,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = contentColor.copy(alpha = 0.7f),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Medium,
-            color = contentColor,
-        )
-    }
-}
-
-// ── Profile Summary ─────────────────────────────────────────────────────────
-
-@Composable
-private fun OverviewMetric(
-    modifier: Modifier = Modifier,
-    label: String,
-    value: String,
-    accentColor: Color,
-    contentColor: Color,
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(lerp(MaterialTheme.colorScheme.surface, accentColor, 0.12f))
-            .padding(horizontal = 12.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = contentColor.copy(alpha = 0.65f),
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = accentColor,
-        )
-    }
-}
-
-@Composable
-private fun StatusBadge(
-    text: String,
-    containerColor: Color,
-    contentColor: Color,
-) {
-    Box(
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(containerColor)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge,
-            color = contentColor,
-        )
-    }
-}
-
 @Composable
 private fun ProfileSummaryCard(
     profile: LensProfile,
@@ -1595,148 +1459,6 @@ private fun ProfileSummaryCard(
     }
 }
 
-@Composable
-private fun ProfileMetricTile(
-    modifier: Modifier = Modifier,
-    value: String,
-    label: String,
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant, 0.62f))
-            .padding(horizontal = 12.dp, vertical = 14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
-// ── Helpers & data classes ──────────────────────────────────────────────────
-
-private data class HomeOverviewContent(
-    val key: SessionHeroContentKey,
-    val headline: String,
-    val supportingText: String,
-    val accentColor: Color,
-    val contentColor: Color,
-)
-
-@Composable
-private fun resolveHomeOverviewContent(
-    displaySession: DisplaySessionUiState,
-    completionSummary: HomeCompletionSummaryUiState?,
-    zoneId: ZoneId,
-    timeFormatter: DateTimeFormatter,
-): HomeOverviewContent {
-    return when (displaySession.status) {
-        SessionStatus.PLANNED -> HomeOverviewContent(
-            key = SessionHeroContentKey.PLANNED,
-            headline = stringResource(R.string.state_session_planned),
-            supportingText = displaySession.plannedStartAt?.let {
-                stringResource(
-                    R.string.label_planned_start
-                ) + " " + it.format(zoneId, timeFormatter)
-            } ?: stringResource(R.string.home_empty_state),
-            accentColor = MaterialTheme.colorScheme.secondary,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        )
-        SessionStatus.ACTIVE -> HomeOverviewContent(
-            key = SessionHeroContentKey.ACTIVE,
-            headline = stringResource(R.string.state_session_active),
-            supportingText = stringResource(
-                R.string.label_remaining_time
-            ) + " " + displaySession.remaining.formatDuration(),
-            accentColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        )
-        SessionStatus.OVERDUE -> HomeOverviewContent(
-            key = SessionHeroContentKey.OVERDUE,
-            headline = stringResource(R.string.state_session_overdue),
-            supportingText = stringResource(
-                R.string.label_overdue_by
-            ) + " " + displaySession.overdueBy.formatDuration(),
-            accentColor = MaterialTheme.colorScheme.error,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        )
-        SessionStatus.COMPLETED, SessionStatus.CANCELLED, null -> {
-            if (completionSummary != null) {
-                val supportingText = if (completionSummary.removedOnTime) {
-                    stringResource(R.string.home_completion_message_on_time)
-                } else {
-                    stringResource(
-                        R.string.home_completion_message_overdue,
-                        completionSummary.overdueBy.formatDuration(),
-                    )
-                }
-                HomeOverviewContent(
-                    key = SessionHeroContentKey.COMPLETION_SUMMARY,
-                    headline = stringResource(R.string.home_completion_summary_title),
-                    supportingText = supportingText,
-                    accentColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            } else {
-                HomeOverviewContent(
-                    key = SessionHeroContentKey.IDLE,
-                    headline = stringResource(R.string.home_empty_state),
-                    supportingText = stringResource(R.string.helper_track_daily_lenses),
-                    accentColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun StaggeredVisibility(
-    delayMillis: Int,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    val visibleState = remember {
-        MutableTransitionState(false).apply {
-            targetState = true
-        }
-    }
-
-    AnimatedVisibility(
-        visibleState = visibleState,
-        modifier = modifier,
-        enter = fadeIn(
-            animationSpec = tween(
-                durationMillis = 320,
-                delayMillis = delayMillis,
-            ),
-        ) + slideInVertically(
-            initialOffsetY = { it / 5 },
-            animationSpec = tween(
-                durationMillis = 320,
-                delayMillis = delayMillis,
-                easing = FastOutSlowInEasing,
-            ),
-        ),
-        exit = ExitTransition.None,
-        label = "staggered_visibility",
-    ) {
-        content()
-    }
-}
-
 private fun sessionHeroContentTransform(
     initialKey: SessionHeroContentKey,
     targetKey: SessionHeroContentKey,
@@ -1769,106 +1491,6 @@ private fun sessionHeroContentTransform(
     }
 
     return enterTransition.togetherWith(exitTransition)
-}
-
-private fun Instant?.format(
-    zoneId: ZoneId,
-    formatter: DateTimeFormatter,
-): String = this?.atZone(zoneId)?.format(formatter).orEmpty()
-
-private fun Duration?.formatDuration(): String {
-    if (this == null) {
-        return "--"
-    }
-
-    val totalMinutes = toMinutes()
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (hours > 0) {
-        "${hours}h ${minutes}m"
-    } else {
-        "${minutes}m"
-    }
-}
-
-private fun Int.formatDuration(): String {
-    val hours = this / 60
-    val minutes = this % 60
-    return if (hours > 0) {
-        "${hours}h ${minutes}m"
-    } else {
-        "${minutes}m"
-    }
-}
-
-internal data class DisplaySessionUiState(
-    val status: SessionStatus? = null,
-    val plannedStartAt: Instant? = null,
-    val actualStartAt: Instant? = null,
-    val expectedEndAt: Instant? = null,
-    val effectiveDeadlineAt: Instant? = null,
-    val finalAlertScheduledFor: Instant? = null,
-    val elapsed: Duration? = null,
-    val remaining: Duration? = null,
-    val overdueBy: Duration? = null,
-)
-
-internal enum class SessionHeroContentKey {
-    IDLE,
-    COMPLETION_SUMMARY,
-    PLANNED,
-    ACTIVE,
-    OVERDUE,
-}
-
-internal sealed interface SessionHeroContentModel {
-    val key: SessionHeroContentKey
-
-    data object Idle : SessionHeroContentModel {
-        override val key: SessionHeroContentKey = SessionHeroContentKey.IDLE
-    }
-
-    data class CompletionSummary(
-        val summary: HomeCompletionSummaryUiState,
-    ) : SessionHeroContentModel {
-        override val key: SessionHeroContentKey = SessionHeroContentKey.COMPLETION_SUMMARY
-    }
-
-    data class Planned(
-        val displaySession: DisplaySessionUiState,
-    ) : SessionHeroContentModel {
-        override val key: SessionHeroContentKey = SessionHeroContentKey.PLANNED
-    }
-
-    data class Active(
-        val displaySession: DisplaySessionUiState,
-        val maxWearMinutes: Int,
-    ) : SessionHeroContentModel {
-        override val key: SessionHeroContentKey = SessionHeroContentKey.ACTIVE
-    }
-
-    data class Overdue(
-        val displaySession: DisplaySessionUiState,
-    ) : SessionHeroContentModel {
-        override val key: SessionHeroContentKey = SessionHeroContentKey.OVERDUE
-    }
-}
-
-internal fun resolveSessionHeroContent(
-    displaySession: DisplaySessionUiState,
-    completionSummary: HomeCompletionSummaryUiState?,
-    maxWearMinutes: Int,
-): SessionHeroContentModel = when (displaySession.status) {
-    null, SessionStatus.COMPLETED, SessionStatus.CANCELLED -> {
-        completionSummary?.let { SessionHeroContentModel.CompletionSummary(it) }
-            ?: SessionHeroContentModel.Idle
-    }
-    SessionStatus.PLANNED -> SessionHeroContentModel.Planned(displaySession)
-    SessionStatus.ACTIVE -> SessionHeroContentModel.Active(
-        displaySession = displaySession,
-        maxWearMinutes = maxWearMinutes,
-    )
-    SessionStatus.OVERDUE -> SessionHeroContentModel.Overdue(displaySession)
 }
 
 private fun SessionHeroContentKey.isLiveSession(): Boolean {

@@ -201,6 +201,33 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `profile saved event is buffered until collector attaches`() = runTest {
+        val profileRepository = LensProfileRepository(FakeLensProfileDao())
+        val preferencesRepository = AppPreferencesRepository(createTestPreferencesDataStore())
+        val viewModel = SettingsViewModel(
+            lensProfileRepository = profileRepository,
+            appPreferencesRepository = preferencesRepository,
+            profileReminderReconciler = createReminderReconciler(
+                profileRepository = profileRepository,
+                sessionRepository = WearSessionRepository(FakeWearSessionDao()),
+                scheduler = FakeReminderAlarmScheduler(),
+                publisher = FakeReminderNotificationPublisher(),
+                clock = FakeLensClock(Instant.parse("2026-03-14T08:00:00Z"))
+            )
+        )
+
+        advanceUntilIdle()
+        viewModel.onMaxWearHoursChanged("14")
+        viewModel.saveProfile(completeOnboarding = false)
+        advanceUntilIdle()
+
+        viewModel.events.test {
+            assertEquals(SettingsEvent.ProfileSaved, awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `save profile reconciles active session final alert`() = runTest {
         val clock = FakeLensClock(Instant.parse("2026-03-14T10:00:00Z"))
         val profileRepository = LensProfileRepository(FakeLensProfileDao())

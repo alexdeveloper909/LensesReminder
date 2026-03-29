@@ -1,6 +1,5 @@
 package com.alex.lensesreminder.feature.plan
 
-import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +16,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DisplayMode
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -28,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -46,6 +49,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.alex.lensesreminder.R
 import com.alex.lensesreminder.ui.component.MaterialTimePickerDialog
+import java.time.Instant
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.flow.collectLatest
@@ -99,6 +104,7 @@ private fun PlanSessionScreen(
     val timeFormatter = remember {
         DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
     }
+    var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -182,19 +188,7 @@ private fun PlanSessionScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     OutlinedButton(
-                        onClick = {
-                            DatePickerDialog(
-                                context,
-                                { _, year, month, dayOfMonth ->
-                                    onDateChanged(
-                                        java.time.LocalDate.of(year, month + 1, dayOfMonth)
-                                    )
-                                },
-                                uiState.selectedDate.year,
-                                uiState.selectedDate.monthValue - 1,
-                                uiState.selectedDate.dayOfMonth
-                            ).show()
-                        },
+                        onClick = { showDatePicker = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
@@ -266,5 +260,42 @@ private fun PlanSessionScreen(
                 onTimeChanged(selectedTime)
             }
         )
+    }
+
+    if (showDatePicker) {
+        val datePickerState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = uiState.selectedDate
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli(),
+            initialDisplayMode = DisplayMode.Picker,
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { selectedDateMillis ->
+                            onDateChanged(
+                                Instant.ofEpochMilli(selectedDateMillis)
+                                    .atZone(ZoneOffset.UTC)
+                                    .toLocalDate()
+                            )
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text(text = stringResource(android.R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(text = stringResource(android.R.string.cancel))
+                }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 }

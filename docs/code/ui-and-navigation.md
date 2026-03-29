@@ -14,19 +14,19 @@ Acts as the root composable for startup routing.
 
 It reads `RootViewModel.uiState` and decides whether the first destination should be:
 
-- `setup`
-- `home`
+- `AppDestination.Setup`
+- `AppDestination.Home`
 
 ## Navigation graph
 
 Navigation is defined in `app/navigation/LensesReminderNavHost.kt`.
 
-Current routes:
+Current destinations use Navigation Compose type-safe routing via `@Serializable` data objects:
 
-- `setup`
-- `home`
-- `planSession`
-- `settings`
+- `AppDestination.Setup`
+- `AppDestination.Home`
+- `AppDestination.PlanSession`
+- `AppDestination.Settings`
 
 The route set is still smaller than the full product spec because correction/recovery flows are deferred to later phases.
 
@@ -43,8 +43,9 @@ Purpose:
 
 Implementation notes:
 
-- reuses the same editor UI as settings
-- saves through `SettingsViewModel`
+- reuses the same pure editor UI as settings
+- `OnboardingRoute` owns `SettingsViewModel` collection and event handling
+- `SettingsEditorScreen` receives only state, callbacks, and `SnackbarHostState`
 - navigates to home on success
 
 ### Home
@@ -79,7 +80,7 @@ Purpose:
 
 Implementation notes:
 
-- uses platform date/time picker dialogs
+- uses Compose Material 3 date and time picker dialogs
 - saves through `PlanSessionViewModel`
 - reuses the same route for both create and edit
 
@@ -93,7 +94,8 @@ Purpose:
 
 Implementation notes:
 
-- shared editor composable between onboarding and settings
+- `SettingsRoute` owns `SettingsViewModel` collection and event handling
+- shared pure editor composable between onboarding and settings
 - validates wear duration before save
 - supports reminder toggle, final alert time selection, and daily `put lenses on` reminder time selection
 - profile save triggers reminder reconciliation so current alarms stay aligned with the new settings
@@ -111,6 +113,7 @@ Implementation notes:
 - owns editable form state
 - validates and saves profile updates
 - optionally marks onboarding complete
+- emits one-shot UI events through a buffered `Channel`
 
 ### `HomeViewModel`
 
@@ -118,12 +121,14 @@ Implementation notes:
 - combines current session state with persisted preferences
 - records that a notification permission request was launched
 - delegates lifecycle actions to `SessionLifecycleManager`
+- emits one-shot UI events through a buffered `Channel`
 
 ### `PlanSessionViewModel`
 
 - loads an existing planned session when present
 - owns the plan date/time form state
 - validates and saves planned-session changes
+- emits one-shot UI events through a buffered `Channel`
 
 ## Notification permission UX
 

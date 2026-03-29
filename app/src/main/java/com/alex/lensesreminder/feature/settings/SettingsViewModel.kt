@@ -9,12 +9,13 @@ import com.alex.lensesreminder.data.repository.LensProfileRepository
 import com.alex.lensesreminder.domain.scheduler.ProfileReminderReconciler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -28,12 +29,12 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val mutableUiState = MutableStateFlow(SettingsUiState())
-    private val mutableEvents = MutableSharedFlow<SettingsEvent>()
+    private val mutableEvents = Channel<SettingsEvent>(Channel.BUFFERED)
     private var hasLoadedProfile = false
 
     val uiState: StateFlow<SettingsUiState> = mutableUiState.asStateFlow()
 
-    val events = mutableEvents.asSharedFlow()
+    val events = mutableEvents.receiveAsFlow()
 
     init {
         viewModelScope.launch {
@@ -47,38 +48,43 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onMaxWearHoursChanged(value: String) {
-        mutableUiState.value = mutableUiState.value.copy(
-            isLoading = false,
-            maxWearHoursInput = value.filter(Char::isDigit).take(3)
-        )
+        mutableUiState.update {
+            it.copy(
+                maxWearHoursInput = value.filter(Char::isDigit).take(3)
+            )
+        }
     }
 
     fun onMaxWearMinutesChanged(value: String) {
-        mutableUiState.value = mutableUiState.value.copy(
-            isLoading = false,
-            maxWearMinutesInput = value.filter(Char::isDigit).take(2)
-        )
+        mutableUiState.update {
+            it.copy(
+                maxWearMinutesInput = value.filter(Char::isDigit).take(2)
+            )
+        }
     }
 
     fun onRemindersEnabledChanged(enabled: Boolean) {
-        mutableUiState.value = mutableUiState.value.copy(
-            isLoading = false,
-            remindersEnabled = enabled
-        )
+        mutableUiState.update {
+            it.copy(
+                remindersEnabled = enabled
+            )
+        }
     }
 
     fun onFinalAlertTimeChanged(value: java.time.LocalTime) {
-        mutableUiState.value = mutableUiState.value.copy(
-            isLoading = false,
-            finalAlertTime = value
-        )
+        mutableUiState.update {
+            it.copy(
+                finalAlertTime = value
+            )
+        }
     }
 
     fun onDailyStartReminderTimeChanged(value: java.time.LocalTime) {
-        mutableUiState.value = mutableUiState.value.copy(
-            isLoading = false,
-            dailyStartReminderTime = value
-        )
+        mutableUiState.update {
+            it.copy(
+                dailyStartReminderTime = value
+            )
+        }
     }
 
     fun saveProfile(completeOnboarding: Boolean) {
@@ -107,13 +113,13 @@ class SettingsViewModel @Inject constructor(
                 appPreferencesRepository.setHasCompletedOnboarding(true)
             }
             profileReminderReconciler.reconcile(savedProfile)
-            mutableEvents.emit(SettingsEvent.ProfileSaved)
+            mutableEvents.send(SettingsEvent.ProfileSaved)
         }
     }
 
     private fun emitValidationError(@androidx.annotation.StringRes messageId: Int) {
         viewModelScope.launch {
-            mutableEvents.emit(SettingsEvent.ValidationError(messageId))
+            mutableEvents.send(SettingsEvent.ValidationError(messageId))
         }
     }
 }

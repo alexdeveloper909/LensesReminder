@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,7 +52,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.alex.lensesreminder.R
 import com.alex.lensesreminder.core.notification.ExactAlarmPermissionManager
 import com.alex.lensesreminder.ui.component.MaterialTimePickerDialog
@@ -64,14 +68,36 @@ fun SettingsRoute(
     onDone: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+
+    LaunchedEffect(viewModel) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                SettingsEvent.ProfileSaved -> onDone()
+                is SettingsEvent.ValidationError -> {
+                    snackbarHostState.showSnackbar(
+                        message = context.getString(event.messageId)
+                    )
+                }
+            }
+        }
+    }
+
     SettingsEditorScreen(
         title = stringResource(R.string.screen_settings_title),
         actionLabel = stringResource(R.string.action_done),
         showBackAction = true,
         onBack = onDone,
-        onSaveSuccess = onDone,
-        completeOnboarding = false,
-        viewModel = viewModel
+        uiState = uiState,
+        snackbarHostState = snackbarHostState,
+        onMaxWearHoursChanged = viewModel::onMaxWearHoursChanged,
+        onMaxWearMinutesChanged = viewModel::onMaxWearMinutesChanged,
+        onRemindersEnabledChanged = viewModel::onRemindersEnabledChanged,
+        onFinalAlertTimeChanged = viewModel::onFinalAlertTimeChanged,
+        onDailyStartReminderTimeChanged = viewModel::onDailyStartReminderTimeChanged,
+        onSaveClick = { viewModel.saveProfile(completeOnboarding = false) },
     )
 }
 
@@ -82,27 +108,15 @@ internal fun SettingsEditorScreen(
     actionLabel: String,
     showBackAction: Boolean,
     onBack: () -> Unit,
-    onSaveSuccess: () -> Unit,
-    completeOnboarding: Boolean,
-    viewModel: SettingsViewModel,
+    uiState: SettingsUiState,
+    snackbarHostState: SnackbarHostState,
+    onMaxWearHoursChanged: (String) -> Unit,
+    onMaxWearMinutesChanged: (String) -> Unit,
+    onRemindersEnabledChanged: (Boolean) -> Unit,
+    onFinalAlertTimeChanged: (java.time.LocalTime) -> Unit,
+    onDailyStartReminderTimeChanged: (java.time.LocalTime) -> Unit,
+    onSaveClick: () -> Unit,
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
-
-    LaunchedEffect(viewModel) {
-        viewModel.events.collectLatest { event ->
-            when (event) {
-                SettingsEvent.ProfileSaved -> onSaveSuccess()
-                is SettingsEvent.ValidationError -> {
-                    snackbarHostState.showSnackbar(
-                        message = context.getString(event.messageId)
-                    )
-                }
-            }
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -150,12 +164,12 @@ internal fun SettingsEditorScreen(
             modifier = Modifier.padding(innerPadding),
             uiState = uiState,
             actionLabel = actionLabel,
-            onMaxWearHoursChanged = viewModel::onMaxWearHoursChanged,
-            onMaxWearMinutesChanged = viewModel::onMaxWearMinutesChanged,
-            onRemindersEnabledChanged = viewModel::onRemindersEnabledChanged,
-            onFinalAlertTimeChanged = viewModel::onFinalAlertTimeChanged,
-            onDailyStartReminderTimeChanged = viewModel::onDailyStartReminderTimeChanged,
-            onSaveClick = { viewModel.saveProfile(completeOnboarding = completeOnboarding) }
+            onMaxWearHoursChanged = onMaxWearHoursChanged,
+            onMaxWearMinutesChanged = onMaxWearMinutesChanged,
+            onRemindersEnabledChanged = onRemindersEnabledChanged,
+            onFinalAlertTimeChanged = onFinalAlertTimeChanged,
+            onDailyStartReminderTimeChanged = onDailyStartReminderTimeChanged,
+            onSaveClick = onSaveClick,
         )
     }
 }
@@ -173,6 +187,7 @@ private fun SettingsEditorContent(
     onSaveClick: () -> Unit,
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     var hasExactAlarmPermission by remember {
         mutableStateOf(ExactAlarmPermissionManager.canScheduleExactAlarms(context))
     }
@@ -185,6 +200,18 @@ private fun SettingsEditorContent(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
         hasExactAlarmPermission = ExactAlarmPermissionManager.canScheduleExactAlarms(context)
+    }
+
+    DisposableEffect(lifecycleOwner, context) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                hasExactAlarmPermission = ExactAlarmPermissionManager.canScheduleExactAlarms(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     Column(
