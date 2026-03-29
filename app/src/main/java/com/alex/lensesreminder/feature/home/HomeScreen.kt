@@ -21,7 +21,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,6 +85,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -215,6 +216,7 @@ private fun HomeScreen(
     onDismissCompletionSummary: () -> Unit,
     onEditSettings: () -> Unit,
 ) {
+    val isDarkTheme = isSystemInDarkTheme()
     val timeFormatter = remember {
         DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
     }
@@ -243,8 +245,16 @@ private fun HomeScreen(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.06f),
+                        lerp(
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.primaryContainer,
+                            if (isDarkTheme) 0.16f else 0.1f,
+                        ),
+                        lerp(
+                            MaterialTheme.colorScheme.background,
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            if (isDarkTheme) 0.22f else 0.08f,
+                        ),
                         MaterialTheme.colorScheme.background,
                     ),
                 ),
@@ -254,9 +264,13 @@ private fun HomeScreen(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 72.dp, end = 20.dp)
-                .size(180.dp)
+                .size(if (isDarkTheme) 140.dp else 180.dp)
                 .background(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                    color = lerp(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.primaryContainer,
+                        if (isDarkTheme) 0.12f else 0.08f,
+                    ),
                     shape = CircleShape,
                 ),
         )
@@ -264,9 +278,13 @@ private fun HomeScreen(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(top = 160.dp, start = 16.dp)
-                .size(120.dp)
+                .size(if (isDarkTheme) 96.dp else 120.dp)
                 .background(
-                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.07f),
+                    color = lerp(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.secondaryContainer,
+                        if (isDarkTheme) 0.16f else 0.08f,
+                    ),
                     shape = CircleShape,
                 ),
         )
@@ -291,6 +309,8 @@ private fun HomeScreen(
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = Color.Transparent,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                        actionIconContentColor = MaterialTheme.colorScheme.onBackground,
                     ),
                 )
             },
@@ -396,32 +416,32 @@ private fun HomeOverviewCard(
     val gradientColors = when (overview.key) {
         SessionHeroContentKey.OVERDUE -> {
             listOf(
-                MaterialTheme.colorScheme.errorContainer,
-                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.95f),
+                lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.errorContainer, 0.62f),
+                lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.tertiaryContainer, 0.36f),
             )
         }
         SessionHeroContentKey.ACTIVE -> {
             listOf(
-                MaterialTheme.colorScheme.primaryContainer,
-                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
+                lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primaryContainer, 0.48f),
+                lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.secondaryContainer, 0.22f),
             )
         }
         SessionHeroContentKey.PLANNED -> {
             listOf(
-                MaterialTheme.colorScheme.secondaryContainer,
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.secondaryContainer, 0.38f),
+                MaterialTheme.colorScheme.surface,
             )
         }
         SessionHeroContentKey.COMPLETION_SUMMARY -> {
             listOf(
-                MaterialTheme.colorScheme.primaryContainer,
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primaryContainer, 0.34f),
+                MaterialTheme.colorScheme.surface,
             )
         }
         SessionHeroContentKey.IDLE -> {
             listOf(
                 MaterialTheme.colorScheme.surface,
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+                lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primaryContainer, 0.2f),
             )
         }
     }
@@ -829,7 +849,7 @@ private fun IdleSessionContent(
                     brush = Brush.linearGradient(
                         colors = listOf(
                             MaterialTheme.colorScheme.surface,
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                            lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.primaryContainer, 0.22f),
                         )
                     ),
                 )
@@ -842,7 +862,11 @@ private fun IdleSessionContent(
                 StaggeredVisibility(delayMillis = 0) {
                     StatusBadge(
                         text = stringResource(R.string.label_lenses_out),
-                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        containerColor = lerp(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.primaryContainer,
+                            0.58f,
+                        ),
                         contentColor = MaterialTheme.colorScheme.primary,
                     )
                 }
@@ -892,10 +916,10 @@ private fun IdleSessionContent(
                             modifier = Modifier.fillMaxWidth(),
                             border = BorderStroke(
                                 width = 1.dp,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                                color = MaterialTheme.colorScheme.outlineVariant,
                             ),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                                containerColor = MaterialTheme.colorScheme.surface,
                                 contentColor = MaterialTheme.colorScheme.onSurface,
                             ),
                             contentPadding = PaddingValues(vertical = 16.dp),
@@ -1467,7 +1491,7 @@ private fun OverviewMetric(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(contentColor.copy(alpha = 0.08f))
+            .background(lerp(MaterialTheme.colorScheme.surface, accentColor, 0.12f))
             .padding(horizontal = 12.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -1514,6 +1538,7 @@ private fun ProfileSummaryCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(
             containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurface,
         ),
     ) {
         Box(
@@ -1522,8 +1547,8 @@ private fun ProfileSummaryCard(
                 .background(
                     brush = Brush.linearGradient(
                         colors = listOf(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
+                            MaterialTheme.colorScheme.surface,
+                            lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant, 0.72f),
                         ),
                     ),
                 )
@@ -1537,6 +1562,7 @@ private fun ProfileSummaryCard(
                         text = stringResource(R.string.home_profile_summary_title),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
                         text = stringResource(R.string.home_profile_summary_caption),
@@ -1578,7 +1604,7 @@ private fun ProfileMetricTile(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
+            .background(lerp(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant, 0.62f))
             .padding(horizontal = 12.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -1588,6 +1614,7 @@ private fun ProfileMetricTile(
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
             text = label,
