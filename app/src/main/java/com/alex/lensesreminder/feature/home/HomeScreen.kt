@@ -695,8 +695,6 @@ private fun SessionHeroCard(
     }
 }
 
-private const val COMPLETION_SUMMARY_AUTO_DISMISS_MILLIS = 8_000L
-
 // ── Idle State ──────────────────────────────────────────────────────────────
 
 @Composable
@@ -704,11 +702,6 @@ private fun CompletionSummaryContent(
     summary: HomeCompletionSummaryUiState,
     onDismiss: () -> Unit,
 ) {
-    LaunchedEffect(summary) {
-        delay(COMPLETION_SUMMARY_AUTO_DISMISS_MILLIS)
-        onDismiss()
-    }
-
     val cardColors = if (summary.removedOnTime) {
         CardDefaults.elevatedCardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
